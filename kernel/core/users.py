@@ -9,10 +9,10 @@ logger = logging.getLogger("user_manager")
 USERS_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "users.json"))
 
 DEFAULT_USERS = {
-    "mikko": {
-        "username": "mikko",
+    "alex": {
+        "username": "alex",
         "password": "joensuu123",
-        "display_name": "Mikko Järvilehto",
+        "display_name": "Alex Virtanen",
         "role": "Executive Board Lead (Business Joensuu)",
         "tone_style": "formal_executive",
         "custom_instructions": "Focus on high-level strategic alignment, private-sector job creation, and Susicorn scaling. Keep intro short and actionable."

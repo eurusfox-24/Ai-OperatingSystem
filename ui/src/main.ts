@@ -1,5 +1,16 @@
 import { RobotCanvasVisualizer } from './visualizer/robot_canvas';
 import { SocketClient } from './socket';
+
+// Intercept fetch to automatically prepend backend host when running from file://
+const originalFetch = window.fetch;
+window.fetch = async (input, init) => {
+  let url = input;
+  if (typeof url === 'string' && url.startsWith('/api') && window.location.protocol === 'file:') {
+    url = 'http://127.0.0.1:8000' + url;
+  }
+  return originalFetch(url, init);
+};
+
 interface UserProfile {
   username: string;
   display_name: string;
@@ -53,17 +64,17 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-  let savedTheme = localStorage.getItem('ai_os_theme');
-  if (!savedTheme || savedTheme === 'light') {
-    savedTheme = 'dark';
-  }
+
+  let savedTheme = localStorage.getItem('ai_os_theme') || 'light';
   applyTheme(savedTheme);
+
   themeBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       const theme = btn.getAttribute('data-theme-set');
       if (theme) applyTheme(theme);
     });
   });
+  
   // Tab View Navigation Elements
   const tabDashboard = document.getElementById('tab-dashboard') as HTMLButtonElement;
   const tabMvpShowcase = document.getElementById('tab-mvp-showcase') as HTMLButtonElement | null;
@@ -191,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function fetchAndRenderProviderRegistry() {
     if (!providerRegistryGrid) return;
     try {
-      const response = await fetch('http://localhost:8000/api/providers/registry');
+      const response = await fetch('/api/providers/registry');
       if (!response.ok) throw new Error(await response.text());
       if (!response.ok) throw new Error(await response.text());
       const data = await response.json();
@@ -260,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setProviderSetupStatus('Saving draft...');
       try {
         const response = await fetch(
-          editingProviderId ? `http://localhost:8000/api/providers/registry/${encodeURIComponent(editingProviderId)}` : 'http://localhost:8000/api/providers/registry',
+          editingProviderId ? `/api/providers/registry/${encodeURIComponent(editingProviderId)}` : '/api/providers/registry',
           {
             method: editingProviderId ? 'PUT' : 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -292,7 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!agentLogsList) return;
     if (agentLogsStatus) agentLogsStatus.textContent = 'Loading activity…';
     try {
-      const response = await fetch('http://localhost:8000/api/autonomy/tasks?limit=100');
+      const response = await fetch('/api/autonomy/tasks?limit=100');
       if (!response.ok) throw new Error('Could not load agent activity.');
       const data = await response.json();
       const tasks = Array.isArray(data.tasks) ? data.tasks : [];
@@ -369,6 +380,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (target === 'agent-logs') {
       if (tabAgentLogs) tabAgentLogs.classList.add('active');
       void fetchAndRenderAgentLogs();
+    } else if (target === 'kanban') {
+      if (tabKanbanHeader) tabKanbanHeader.classList.add('active');
+      void fetchAndRenderKanbanTasks();
     }
   }
 
@@ -482,10 +496,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const projectWorkspaceStatus = document.getElementById('project-workspace-status') as HTMLSpanElement | null;
   const projectWorkspaceTitle = document.getElementById('project-workspace-title') as HTMLElement | null;
   const projectWorkspaceSubmit = document.getElementById('project-workspace-submit') as HTMLButtonElement | null;
-  const businessContextBtn = document.getElementById('business-context-btn') as HTMLButtonElement | null;
   const businessContextSummary = document.getElementById('business-context-summary') as HTMLElement | null;
-  const businessContextModal = document.getElementById('business-context-modal') as HTMLDivElement | null;
-  const closeBusinessContextBtn = document.getElementById('close-business-context-btn') as HTMLButtonElement | null;
+  const openDnaContextBtn = document.getElementById('open-dna-context-btn') as HTMLButtonElement | null;
+  const openCompaniesContextBtn = document.getElementById('open-companies-context-btn') as HTMLButtonElement | null;
+  const dnaContextModal = document.getElementById('dna-context-modal') as HTMLDivElement | null;
+  const companiesContextModal = document.getElementById('companies-context-modal') as HTMLDivElement | null;
+  const closeDnaContextBtn = document.getElementById('close-dna-context-btn') as HTMLButtonElement | null;
+  const closeCompaniesContextBtn = document.getElementById('close-companies-context-btn') as HTMLButtonElement | null;
   const organizationContextForm = document.getElementById('organization-context-form') as HTMLFormElement | null;
   const organizationContextName = document.getElementById('organization-context-name') as HTMLInputElement | null;
   const organizationContextMission = document.getElementById('organization-context-mission') as HTMLTextAreaElement | null;
@@ -526,14 +543,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const updateResearchModeBadge = () => {
     if (!activeContextBadge) return;
     if (deepResearchMode?.checked) {
-      activeContextBadge.textContent = '🔎 Deep research workflow enabled';
+      activeContextBadge.textContent = 'Deep research workflow enabled';
       return;
     }
     const selectedCount = selectedProjectIds.size;
     if (!selectedCount) {
-      activeContextBadge.textContent = '🧠 + 🌐 Reasoning & Internet';
+      activeContextBadge.textContent = 'Reasoning & Internet';
     } else {
-      activeContextBadge.textContent = `🌲 ${selectedCount} project${selectedCount === 1 ? '' : 's'} + 🌐 Internet`;
+      activeContextBadge.textContent = `${selectedCount} project${selectedCount === 1 ? '' : 's'} + Internet`;
     }
   };
 
@@ -590,14 +607,39 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     partnerCompanies.forEach((company) => {
-      const item = document.createElement('button');
-      item.type = 'button';
+      const item = document.createElement('div');
       item.className = 'partner-company-item';
+
+      const content = document.createElement('div');
+      content.className = 'partner-company-item-content';
+      
       const title = document.createElement('strong');
       title.textContent = company.name;
       const detail = document.createElement('span');
       detail.textContent = company.context_md || company.priorities_md || 'Company context ready to edit';
-      item.append(title, detail);
+      content.append(title, detail);
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'partner-company-delete-btn';
+      deleteBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>';
+      deleteBtn.title = 'Delete company';
+      
+      deleteBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!confirm(`Are you sure you want to delete ${company.name}?`)) return;
+        try {
+          const response = await fetch(`${businessContextApiBase()}/api/business-context/companies/${encodeURIComponent(company.id)}`, {
+            method: 'DELETE'
+          });
+          if (!response.ok) throw new Error(await response.text());
+          await loadBusinessContext();
+        } catch (error) {
+          console.error('Failed to delete company:', error);
+          if (partnerCompanyStatus) partnerCompanyStatus.textContent = 'Error deleting company.';
+        }
+      });
+
       item.addEventListener('click', () => {
         editingCompanyId = company.id;
         if (partnerCompanyName) partnerCompanyName.value = company.name || '';
@@ -607,6 +649,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (partnerCompanySaveBtn) partnerCompanySaveBtn.textContent = 'Update partner company';
         if (partnerCompanyStatus) partnerCompanyStatus.textContent = `Editing ${company.name}`;
       });
+      
+      item.append(content, deleteBtn);
       partnerCompanyList.appendChild(item);
     });
   }
@@ -637,13 +681,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function closeBusinessContext() {
-    if (businessContextModal) businessContextModal.style.display = 'none';
+    if (dnaContextModal) dnaContextModal.style.display = 'none';
+    if (companiesContextModal) companiesContextModal.style.display = 'none';
     resetPartnerCompanyForm();
   }
 
-  async function openBusinessContext() {
+  async function openDnaContext() {
     await loadBusinessContext();
-    if (businessContextModal) businessContextModal.style.display = 'flex';
+    if (dnaContextModal) dnaContextModal.style.display = 'flex';
+  }
+
+  async function openCompaniesContext() {
+    await loadBusinessContext();
+    if (companiesContextModal) companiesContextModal.style.display = 'flex';
   }
 
   function openProjectWorkspace(project?: ProjectWorkspace) {
@@ -660,10 +710,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (projectWorkspaceModal) projectWorkspaceModal.style.display = 'flex';
   }
 
-  if (businessContextBtn) businessContextBtn.addEventListener('click', () => void openBusinessContext());
-  if (closeBusinessContextBtn) closeBusinessContextBtn.addEventListener('click', closeBusinessContext);
-  if (businessContextModal) businessContextModal.addEventListener('click', (event) => {
-    if (event.target === businessContextModal) closeBusinessContext();
+  if (openDnaContextBtn) openDnaContextBtn.addEventListener('click', () => void openDnaContext());
+  if (openCompaniesContextBtn) openCompaniesContextBtn.addEventListener('click', () => void openCompaniesContext());
+  
+  if (closeDnaContextBtn) closeDnaContextBtn.addEventListener('click', closeBusinessContext);
+  if (closeCompaniesContextBtn) closeCompaniesContextBtn.addEventListener('click', closeBusinessContext);
+  
+  if (dnaContextModal) dnaContextModal.addEventListener('click', (event) => {
+    if (event.target === dnaContextModal) closeBusinessContext();
+  });
+  if (companiesContextModal) companiesContextModal.addEventListener('click', (event) => {
+    if (event.target === companiesContextModal) closeBusinessContext();
   });
   if (organizationContextForm) organizationContextForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -718,7 +775,7 @@ document.addEventListener('DOMContentLoaded', () => {
   refreshNotebookWorkspace = async () => {
     if (!notebookListContainer || !notebookSourcesList) return;
     try {
-      const response = await fetch('http://localhost:8000/api/notebooks');
+      const response = await fetch('/api/notebooks');
       if (!response.ok) throw new Error(await response.text());
       const payload = await response.json();
       projectWorkspaces = Array.isArray(payload.notebooks) ? payload.notebooks : [];
@@ -792,7 +849,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const name = document.createElement('span');
           name.className = 'notebook-title';
           name.textContent = `📄 ${fileName}`;
-          name.title = 'Check to allow this source in the Manager and delegated-agent context.';
+          name.title = 'Check to allow this source in the AI Board Member and delegated-agent context.';
           sourceCheckbox.addEventListener('change', () => {
             if (sourceCheckbox.checked) selectedSources.add(fileName);
             else selectedSources.delete(fileName);
@@ -806,7 +863,7 @@ document.addEventListener('DOMContentLoaded', () => {
           remove.title = 'Remove source from this project. The original document is preserved.';
           remove.addEventListener('click', async () => {
             if (!activeProjectId || !confirm(`Remove ${fileName} from this project?`)) return;
-            await fetch(`http://localhost:8000/api/notebooks/${encodeURIComponent(activeProjectId)}/documents/${encodeURIComponent(fileName)}`, { method: 'DELETE' });
+            await fetch(`/api/notebooks/${encodeURIComponent(activeProjectId)}/documents/${encodeURIComponent(fileName)}`, { method: 'DELETE' });
             selectedSources.delete(fileName);
             await refreshNotebookWorkspace?.();
           });
@@ -837,7 +894,7 @@ document.addEventListener('DOMContentLoaded', () => {
   refreshNotebookWorkspace = async () => {
     if (!notebookListContainer) return;
     try {
-      const response = await fetch('http://localhost:8000/api/notebooks');
+      const response = await fetch('/api/notebooks');
       if (!response.ok) throw new Error(await response.text());
       const payload = await response.json();
       projectWorkspaces = Array.isArray(payload.notebooks) ? payload.notebooks : [];
@@ -852,90 +909,99 @@ document.addEventListener('DOMContentLoaded', () => {
 
       projectWorkspaces.forEach((project) => {
         const folder = document.createElement('section');
-        folder.className = `project-tree-folder${selectedProjectIds.has(project.id) ? ' is-selected' : ''}`;
+        folder.className = 'project-tree-folder';
 
         const header = document.createElement('div');
-        header.className = 'notebook-item project-workspace-item';
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.className = 'notebook-checkbox';
-        checkbox.id = `project-${project.id}`;
-        checkbox.checked = selectedProjectIds.has(project.id);
-        const label = document.createElement('label');
-        label.className = 'project-workspace-label';
-        label.htmlFor = checkbox.id;
-        const title = document.createElement('span');
-        title.className = 'notebook-title';
-        title.textContent = `📁 ${project.name}`;
-        const count = document.createElement('span');
-        count.className = 'project-source-count';
-        count.textContent = `${(project.doc_names || []).length} file${(project.doc_names || []).length === 1 ? '' : 's'}`;
-        label.append(title, count);
-        if (project.company_name) {
-          const company = document.createElement('span');
-          company.className = 'project-company-label';
-          company.textContent = project.company_name;
-          label.appendChild(company);
-        }
-        const addFile = document.createElement('button');
-        addFile.type = 'button';
-        addFile.className = 'remove-source-btn project-add-file-btn';
-        addFile.textContent = '+';
-        addFile.title = `Add a file to ${project.name}`;
-        addFile.addEventListener('click', async () => {
+        header.className = `project-tree-header${selectedProjectIds.has(project.id) ? ' is-selected' : ''}`;
+        header.addEventListener('click', () => {
           activeProjectId = project.id;
-          await openDocumentUpload();
-        });
-        const editProject = document.createElement('button');
-        editProject.type = 'button';
-        editProject.className = 'remove-source-btn project-edit-btn';
-        editProject.textContent = '⋯';
-        editProject.title = `Edit context for ${project.name}`;
-        editProject.addEventListener('click', async () => {
-          await loadBusinessContext();
-          openProjectWorkspace(project);
-        });
-        checkbox.addEventListener('change', () => {
-          activeProjectId = project.id;
-          if (checkbox.checked) selectedProjectIds.add(project.id);
-          else selectedProjectIds.delete(project.id);
+          if (selectedProjectIds.has(project.id)) {
+            selectedProjectIds.delete(project.id);
+          } else {
+            selectedProjectIds.add(project.id);
+          }
           updateProjectKnowledgeScope();
           updateResearchModeBadge();
           void refreshNotebookWorkspace?.();
         });
-        header.append(checkbox, label, editProject, addFile);
+
+        const icon = document.createElement('span');
+        icon.className = 'project-tree-icon';
+        icon.innerHTML = '<svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
+
+        const title = document.createElement('span');
+        title.className = 'project-tree-title';
+        title.textContent = project.name;
+
+        const actions = document.createElement('div');
+        actions.className = 'project-tree-actions';
+
+        const editProject = document.createElement('button');
+        editProject.type = 'button';
+        editProject.className = 'project-tree-action-btn';
+        editProject.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>';
+        editProject.title = `Edit context for ${project.name}`;
+        editProject.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          await loadBusinessContext();
+          openProjectWorkspace(project);
+        });
+
+        const addFile = document.createElement('button');
+        addFile.type = 'button';
+        addFile.className = 'project-tree-action-btn';
+        addFile.innerHTML = '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+        addFile.title = `Add a file to ${project.name}`;
+        addFile.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          activeProjectId = project.id;
+          await openDocumentUpload();
+        });
+
+        actions.append(editProject, addFile);
+        header.append(icon, title, actions);
         folder.appendChild(header);
 
-        const files = document.createElement('div');
-        files.className = 'project-tree-files';
-        const documentNames = project.doc_names || [];
-        if (!documentNames.length) {
-          const empty = document.createElement('div');
-          empty.className = 'project-tree-empty';
-          empty.textContent = 'No files yet';
-          files.appendChild(empty);
-        }
-        documentNames.forEach((fileName) => {
-          const file = document.createElement('div');
-          file.className = 'notebook-item project-source-item';
-          const name = document.createElement('span');
-          name.className = 'notebook-title';
-          name.textContent = `📄 ${fileName}`;
-          name.title = `${fileName} is included whenever ${project.name} is selected.`;
-          const remove = document.createElement('button');
-          remove.type = 'button';
-          remove.className = 'remove-source-btn';
-          remove.textContent = '×';
-          remove.title = `Remove ${fileName} from ${project.name}`;
-          remove.addEventListener('click', async () => {
-            if (!confirm(`Remove ${fileName} from ${project.name}?`)) return;
-            await fetch(`http://localhost:8000/api/notebooks/${encodeURIComponent(project.id)}/documents/${encodeURIComponent(fileName)}`, { method: 'DELETE' });
-            await refreshNotebookWorkspace?.();
+        if (selectedProjectIds.has(project.id)) {
+          const files = document.createElement('div');
+          files.className = 'project-tree-files';
+          const documentNames = project.doc_names || [];
+          if (!documentNames.length) {
+            const empty = document.createElement('div');
+            empty.className = 'project-tree-empty';
+            empty.textContent = 'No files yet';
+            files.appendChild(empty);
+          }
+          documentNames.forEach((fileName) => {
+            const file = document.createElement('div');
+            file.className = 'project-tree-file-item';
+            
+            const fileIcon = document.createElement('span');
+            fileIcon.className = 'project-tree-icon';
+            fileIcon.innerHTML = '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>';
+            
+            const name = document.createElement('span');
+            name.className = 'project-tree-title';
+            name.textContent = fileName;
+            name.title = `${fileName} is included whenever ${project.name} is selected.`;
+            
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'project-tree-action-btn';
+            remove.innerHTML = '<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+            remove.title = `Remove ${fileName} from ${project.name}`;
+            remove.addEventListener('click', async (e) => {
+              e.stopPropagation();
+              if (!confirm(`Remove ${fileName} from ${project.name}?`)) return;
+              await fetch(`/api/notebooks/${encodeURIComponent(project.id)}/documents/${encodeURIComponent(fileName)}`, { method: 'DELETE' });
+              await refreshNotebookWorkspace?.();
+            });
+            
+            file.append(fileIcon, name, remove);
+            files.appendChild(file);
           });
-          file.append(name, remove);
-          files.appendChild(file);
-        });
-        folder.appendChild(files);
+          folder.appendChild(files);
+        }
         notebookListContainer.appendChild(folder);
       });
 
@@ -978,7 +1044,7 @@ document.addEventListener('DOMContentLoaded', () => {
     formData.append('notebook_id', uploadNotebookSelect.value);
     if (uploadStatusPage) { uploadStatusPage.style.display = 'block'; uploadStatusPage.textContent = `Indexing ${file.name}…`; }
     try {
-      const response = await fetch('http://localhost:8000/api/documents/upload', { method: 'POST', body: formData });
+      const response = await fetch('/api/documents/upload', { method: 'POST', body: formData });
       if (!response.ok) throw new Error(await response.text());
       if (uploadStatusPage) uploadStatusPage.textContent = `${file.name} is ready in this project's knowledge tree.`;
       await refreshNotebookWorkspace?.();
@@ -1010,7 +1076,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (projectWorkspaceStatus) projectWorkspaceStatus.textContent = 'Creating project…';
       try {
         if (editingProjectId) {
-          const response = await fetch(`http://localhost:8000/api/notebooks/${encodeURIComponent(editingProjectId)}`, {
+          const response = await fetch(`/api/notebooks/${encodeURIComponent(editingProjectId)}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1027,7 +1093,7 @@ document.addEventListener('DOMContentLoaded', () => {
           await refreshNotebookWorkspace?.();
           return;
         }
-        const response = await fetch('http://localhost:8000/api/notebooks', {
+        const response = await fetch('/api/notebooks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1077,10 +1143,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const prompt = btn.getAttribute('data-prompt');
       if (!agentType || !prompt) return;
 
-      const activeUser = currentUser ? currentUser.username : 'mikko';
+      const activeUser = currentUser ? currentUser.username : 'alex';
 
       try {
-        const res = await fetch('http://localhost:8000/api/agents/dispatch', {
+        const res = await fetch('/api/agents/dispatch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1117,7 +1183,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const customDirectivesPage = document.getElementById('custom-directives-page') as HTMLTextAreaElement;
   const tierContentStore: Record<string, string> = {
     soul: `[SOUL.md - Permanently Cached Agent Identity]\nYou are the Strategic AI Board Member for Business Joensuu & North Karelia, Finland.\nCore Mission: Drive private-sector job creation (1,000 tech jobs by 2026), accelerate Susicorn venture scaling, and maximize inward VC capital.\nGuardrails: Maintain strict data confidentiality, high financial accuracy, and actionable strategic advice.`,
-    user: `[USER.md - Human Caller Profile & Contract]\nUser: Mikko Järvilehto (Executive Board Lead)\nRole: Business Joensuu Board Director\nTone Preference: Formal Executive & Strategic\nContract: Keep introductory pleasantries brief; deliver bulleted scorecards with high strategic ROI.`,
+    user: `[USER.md - Human Caller Profile & Contract]\nUser: Alex Virtanen (Executive Board Lead)\nRole: Business Joensuu Board Director\nTone Preference: Formal Executive & Strategic\nContract: Keep introductory pleasantries brief; deliver bulleted scorecards with high strategic ROI.`,
     memory: `[MEMORY.md - Durable Curated Regional Facts]\nFact 1: Joensuu target bio-cluster active companies = 4 Susicorn ventures.\nFact 2: Current jobs created in bio-innovations = 420 of 1,000 target.\nFact 3: Inward VC dealflow target = €€€15.0M capital injection.`
   };
   let activeTier = 'soul';
@@ -1166,7 +1232,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!agentData) {
       promptCodeInspector.textContent = `Streaming system prompt for ${targetAgent} from local SQLite...`;
       try {
-        const res = await fetch('http://localhost:8000/api/agents/prompts');
+        const res = await fetch('/api/agents/prompts');
         if (res.ok) {
           const data = await res.json();
           loadedPromptsCache = data.prompts || {};
@@ -1238,6 +1304,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (u && p && loginUsername && loginPassword) {
         loginUsername.value = u;
         loginPassword.value = p;
+        if (loginForm) {
+          loginForm.requestSubmit();
+        }
       }
     });
   });
@@ -1257,7 +1326,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       try {
-        const res = await fetch('http://localhost:8000/api/auth/login', {
+        const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, password })
@@ -1276,6 +1345,7 @@ document.addEventListener('DOMContentLoaded', () => {
             connectionStatus.textContent = '● Kernel Online';
             connectionStatus.className = 'status-online';
           }
+          switchView('dashboard');
         } else {
           if (loginError) {
             loginError.textContent = 'Invalid credentials. Try again.';
@@ -1359,7 +1429,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let managerQueueDrainTimer: number | null = null;
 
   const chatApiBase = () => window.location.protocol === 'file:' ? 'http://127.0.0.1:8000' : '';
-  const activeChatUser = () => currentUser ? currentUser.username : 'mikko';
+  const activeChatUser = () => currentUser ? currentUser.username : 'alex';
 
   const workflowApiBase = () => window.location.protocol === 'file:' ? 'http://127.0.0.1:8000' : '';
 
@@ -1587,10 +1657,10 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/\n/g, '<br/>');
   }
 
-  function makeModelFooter(provider?: string, model?: string, label: string = '🟢 Key Verified') {
+  function makeModelFooter(provider?: string, model?: string, label: string = 'Key Verified') {
     const safeProvider = escapeHtml((provider || 'azure').toUpperCase());
     const safeModel = escapeHtml(model || 'mvp-gpt-54-mini');
-    return '<div class="msg-model-footer" style="margin-top: 12px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.15); font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;"><span>🧠 Response generated via <strong style="color: #a78bfa;">' + safeProvider + '</strong> (<span style="color: var(--accent-blue);">' + safeModel + '</span>)</span><span class="subtext" style="font-size: 0.7rem; color: var(--accent-green);">' + label + '</span></div>';
+    return '<div class="msg-model-footer" style="margin-top: 12px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.15); font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;"><span>Response generated via <strong style="color: #a78bfa;">' + safeProvider + '</strong> (<span style="color: var(--accent-blue);">' + safeModel + '</span>)</span><span class="subtext" style="font-size: 0.7rem; color: var(--accent-green);">' + label + '</span></div>';
   }
 
   function renderStoredSessionMessages(messages: Array<any>) {
@@ -1617,7 +1687,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const responseBody = document.createElement('div');
         responseBody.className = 'assistant-response-body';
         responseBody.innerHTML = formatEvidenceResponse(message.content_md) + (isResearch
-          ? '<div class="msg-model-footer" style="margin-top: 12px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.15); font-size: 0.78rem; color: var(--text-muted);">🔎 Autonomous evidence report</div>'
+          ? '<div class="msg-model-footer" style="margin-top: 12px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.15); font-size: 0.78rem; color: var(--text-muted);">Autonomous evidence report</div>'
           : makeModelFooter(metadata.provider, metadata.model));
         messageEl.appendChild(responseBody);
       }
@@ -1971,7 +2041,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     chatStream.appendChild(userMsgDiv);
-    if (chatInput) chatInput.value = '';
+    if (chatInput) {
+      chatInput.value = '';
+      chatInput.style.height = 'auto';
+    }
 
     const loadingDiv = document.createElement('div');
     loadingDiv.className = 'agent-msg loading-msg';
@@ -1986,7 +2059,7 @@ document.addEventListener('DOMContentLoaded', () => {
     syncManagerComposerState();
 
     try {
-      const activeUser = currentUser ? currentUser.username : 'mikko';
+      const activeUser = currentUser ? currentUser.username : 'alex';
       const apiUrl = (window.location.protocol === 'file:' ? 'http://127.0.0.1:8000' : '') + '/api/chat/stream';
       const payload: any = {
         prompt: rawPrompt,
@@ -2011,7 +2084,7 @@ document.addEventListener('DOMContentLoaded', () => {
           body: JSON.stringify(payload),
         });
       } catch {
-        response = await fetch('http://localhost:8000/api/chat/stream', {
+        response = await fetch('/api/chat/stream', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -2112,6 +2185,7 @@ document.addEventListener('DOMContentLoaded', () => {
     userMessage.textContent = `Deep research: ${question}`;
     chatStream.appendChild(userMessage);
     chatInput.value = '';
+    chatInput.style.height = 'auto';
 
     const progress = document.createElement('div');
     progress.className = 'agent-msg loading-msg';
@@ -2122,7 +2196,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       await persistSessionMessage('user', `Deep research: ${question}`, { kind: 'deep_research_request' });
-      const activeUser = currentUser ? currentUser.username : 'mikko';
+      const activeUser = currentUser ? currentUser.username : 'alex';
       const baseUrl = window.location.protocol === 'file:' ? 'http://127.0.0.1:8000' : '';
       const createResponse = await fetch(`${baseUrl}/api/autonomy/research`, {
         method: 'POST',
@@ -2193,6 +2267,11 @@ document.addEventListener('DOMContentLoaded', () => {
         handleChatSubmission(e); // Submit the form
       }
     });
+
+    chatInput.addEventListener('input', () => {
+      chatInput.style.height = 'auto';
+      chatInput.style.height = chatInput.scrollHeight + 'px';
+    });
   }
 
   function appendMessage(sender: 'user' | 'agent', text: string) {
@@ -2225,7 +2304,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       try {
         btnSaveMeeting.textContent = '⏳ Saving...';
-        const res = await fetch('http://localhost:8000/api/documents/upload', {
+        const res = await fetch('/api/documents/upload', {
           method: 'POST',
           body: formData
         });
@@ -2394,7 +2473,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadAgentConfiguration() {
     if (!habitatAgentSelect || !habitatPromptTextarea || !habitatProviderSelect || !habitatModelSelect) return;
     try {
-      const response = await fetch('http://localhost:8000/api/agents/prompts');
+      const response = await fetch('/api/agents/prompts');
       if (!response.ok) throw new Error(await response.text());
       const payload = await response.json();
       loadedPromptsCache = payload.prompts || {};
@@ -2429,7 +2508,7 @@ document.addEventListener('DOMContentLoaded', () => {
         habitatSaveStatus.textContent = 'Saving agent profile…';
       }
       try {
-        const response = await fetch('http://localhost:8000/api/agents/prompt/update', {
+        const response = await fetch('/api/agents/prompt/update', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -2460,7 +2539,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
   async function fetchAndRenderAgentPrompts() {
     try {
-      const res = await fetch('http://localhost:8000/api/agents/prompts');
+      const res = await fetch('/api/agents/prompts');
       if (res.ok) {
         const data = await res.json();
         loadedPromptsCache = data.prompts || {};
@@ -2476,7 +2555,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const docTableBody = document.getElementById('doc-table-body');
     if (!docTableBody) return;
     try {
-      const res = await fetch('http://localhost:8000/api/documents/list');
+      const res = await fetch('/api/documents/list');
       if (res.ok) {
         const data = await res.json();
         docTableBody.innerHTML = '';
@@ -2517,7 +2596,7 @@ document.addEventListener('DOMContentLoaded', () => {
 async function fetchDBTables() {
   if (!dbTablesList) return;
   try {
-    const res = await fetch('http://localhost:8000/api/db/tables');
+    const res = await fetch('/api/db/tables');
     if (res.ok) {
       const data = await res.json();
       dbTablesList.innerHTML = '';
@@ -2594,7 +2673,7 @@ async function loadTableData(table: string) {
   if (!dbDataThead || !dbDataTbody) return;
 
   try {
-    const res = await fetch(`http://localhost:8000/api/db/tables/${table}`);
+    const res = await fetch(`/api/db/tables/${table}`);
     if (res.ok) {
       const data = await res.json();
       currentTableSchema = data.schema;
@@ -2644,7 +2723,7 @@ async function loadTableData(table: string) {
           deleteButton.textContent = 'Delete';
           deleteButton.addEventListener('click', async () => {
             if (confirm('Are you sure you want to delete this row?')) {
-              await fetch(`http://localhost:8000/api/db/tables/${table}/${pkCol}/${encodeURIComponent(String(row[pkCol]))}`, { method: 'DELETE' });
+              await fetch(`/api/db/tables/${table}/${pkCol}/${encodeURIComponent(String(row[pkCol]))}`, { method: 'DELETE' });
               loadTableData(table);
             }
           });
@@ -2720,8 +2799,8 @@ if (dbRowForm) {
       if (!currentActiveTable) return;
       if (!isCreatingDbRow && (!currentEditingPkCol || currentEditingPkVal === null)) return;
       const url = isCreatingDbRow
-        ? `http://localhost:8000/api/db/tables/${currentActiveTable}`
-        : `http://localhost:8000/api/db/tables/${currentActiveTable}/${currentEditingPkCol}/${encodeURIComponent(String(currentEditingPkVal))}`;
+        ? `/api/db/tables/${currentActiveTable}`
+        : `/api/db/tables/${currentActiveTable}/${currentEditingPkCol}/${encodeURIComponent(String(currentEditingPkVal))}`;
       const res = await fetch(url, {
         method: isCreatingDbRow ? 'POST' : 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -2821,7 +2900,7 @@ async function openKanbanTaskModal(task: any | null = null) {
   if (taskPromptInput) taskPromptInput.value = task?.prompt || '';
   if (taskTimeInput) taskTimeInput.value = task?.schedule_enabled ? toLocalDateTimeInput(task.scheduled_time) : '';
   if (taskProjectSelect) taskProjectSelect.value = taskNotebookIds(task)[0] || '';
-  if (taskModalTitle) taskModalTitle.textContent = editingKanbanTaskId ? '✏️ Edit Manager Task' : '📋 Add Manager Task';
+  if (taskModalTitle) taskModalTitle.textContent = editingKanbanTaskId ? '✏️ Edit Board Task' : '📋 Add Board Task';
   if (taskModalSubmit) taskModalSubmit.textContent = editingKanbanTaskId ? 'Save task' : 'Add to Pending';
   await loadKanbanProjectOptions();
   newTaskModal.style.display = 'flex';
@@ -2874,11 +2953,15 @@ function refreshKanbanCountdowns() {
   });
 }
 
-function makeKanbanAction(label: string, className: string, handler: () => void) {
+function makeKanbanAction(label: string, className: string, handler: () => void, iconSvg?: string) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = className;
-  button.textContent = label;
+  if (iconSvg) {
+    button.innerHTML = `${iconSvg}<span>${label}</span>`;
+  } else {
+    button.textContent = label;
+  }
   button.addEventListener('click', handler);
   return button;
 }
@@ -2912,7 +2995,7 @@ if (newTaskForm) {
     e.preventDefault();
     const prompt = taskPromptInput?.value.trim() || '';
     if (!prompt) {
-      alert('Add clear instructions for the Manager.');
+      alert('Add clear instructions for the AI Board Member.');
       return;
     }
     
@@ -2920,7 +3003,7 @@ if (newTaskForm) {
       const localScheduledTime = taskTimeInput?.value || '';
       const payload = {
         prompt,
-        username: 'mikko',
+        username: 'alex',
         notebook_ids: taskProjectSelect?.value ? [taskProjectSelect.value] : [],
         scheduled_time: localScheduledTime ? new Date(localScheduledTime).toISOString() : null,
         timezone: localTimeZone(),
@@ -3025,21 +3108,28 @@ function renderKanbanBoard(tasks: any[]) {
 
     const actions = document.createElement('div');
     actions.className = 'kanban-card-actions';
+    const runIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+    const editIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`;
+    const deleteIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
+    const viewIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+    const rerunIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>`;
+
     if (task.status === 'pending') {
       actions.append(
-        makeKanbanAction('Run now', 'action-sm-btn', () => void runKanbanTaskNow(task.id)),
-        makeKanbanAction('Edit', 'action-sm-btn', () => void openKanbanTaskModal(task)),
-        makeKanbanAction('Delete', 'action-sm-btn delete-db-btn', () => void deletePendingKanbanTask(task.id)),
+        makeKanbanAction('Run now', 'action-sm-btn action-primary', () => void runKanbanTaskNow(task.id), runIcon),
+        makeKanbanAction('Edit', 'action-sm-btn', () => void openKanbanTaskModal(task), editIcon),
+        makeKanbanAction('Delete', 'action-sm-btn delete-db-btn', () => void deleteKanbanTask(task.id), deleteIcon),
       );
     } else if (task.status === 'running') {
       const running = document.createElement('span');
       running.className = 'task-running-label';
-      running.textContent = 'Manager is running this task';
+      running.textContent = 'AI Board Member is running this task';
       actions.appendChild(running);
     } else {
       actions.append(
-        makeKanbanAction('View result', 'action-sm-btn', () => void openKanbanArchive(task.id)),
-        makeKanbanAction('Run again', 'action-sm-btn', () => void rerunKanbanTask(task.id)),
+        makeKanbanAction('View result', 'action-sm-btn', () => void openKanbanArchive(task.id), viewIcon),
+        makeKanbanAction('Run again', 'action-sm-btn action-primary', () => void rerunKanbanTask(task.id), rerunIcon),
+        makeKanbanAction('Delete', 'action-sm-btn delete-db-btn', () => void deleteKanbanTask(task.id), deleteIcon),
       );
     }
     card.appendChild(actions);
@@ -3061,8 +3151,8 @@ function renderKanbanBoard(tasks: any[]) {
   if (countPending) countPending.textContent = pCount.toString();
   if (countRun) countRun.textContent = rCount.toString();
   if (countDone) countDone.textContent = aCount.toString();
-  if (!pCount) appendKanbanEmptyState(colPending, 'Nothing waiting for approval', 'Add a Manager task here, then run it when you are ready.');
-  if (!rCount) appendKanbanEmptyState(colRun, 'No task is running', 'Approved work appears here while the Manager is executing it.');
+  if (!pCount) appendKanbanEmptyState(colPending, 'Nothing waiting for approval', 'Add a Board task here, then run it when you are ready.');
+  if (!rCount) appendKanbanEmptyState(colRun, 'No task is running', 'Approved work appears here while the AI Board Member is executing it.');
   if (!aCount) appendKanbanEmptyState(colDone, 'No completed results yet', 'Completed and failed task results will be archived here.');
   refreshKanbanCountdowns();
 }
@@ -3077,8 +3167,8 @@ async function runKanbanTaskNow(taskId: string) {
   }
 }
 
-async function deletePendingKanbanTask(taskId: string) {
-  if (!confirm('Delete this pending task? This cannot be undone.')) return;
+async function deleteKanbanTask(taskId: string) {
+  if (!confirm('Delete this task? This cannot be undone.')) return;
   try {
     const response = await fetch(`${kanbanApiBase()}/api/tasks/${encodeURIComponent(taskId)}`, { method: 'DELETE' });
     if (!response.ok) throw new Error(await response.text());

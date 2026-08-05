@@ -112,7 +112,7 @@ class ManagerAgent(BaseAgent):
 
     def get_user_history(
         self,
-        username: str = "mikko",
+        username: str = "alex",
         current_query: str = "",
         project_id: str = "",
         session_id: str = "",
@@ -200,7 +200,7 @@ class ManagerAgent(BaseAgent):
     async def handle_user_prompt(
         self,
         prompt: str,
-        username: str = "mikko",
+        username: str = "alex",
         session_id: str = "",
         agent_id: str = "",
         image_data: Optional[str] = None,

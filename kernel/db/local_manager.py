@@ -174,7 +174,7 @@ class LocalDBManager:
                 CREATE TABLE IF NOT EXISTS agent_memories (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     agent_id TEXT NOT NULL,
-                    user_id TEXT NOT NULL DEFAULT 'mikko',
+                    user_id TEXT NOT NULL DEFAULT 'alex',
                     project_id TEXT NOT NULL DEFAULT '',
                     memory_md TEXT NOT NULL,
                     created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -205,7 +205,7 @@ class LocalDBManager:
                     root_task_id TEXT NOT NULL DEFAULT '',
                     parent_task_id TEXT NOT NULL DEFAULT '',
                     version INTEGER NOT NULL DEFAULT 1,
-                    username TEXT NOT NULL DEFAULT 'mikko',
+                    username TEXT NOT NULL DEFAULT 'alex',
                     notebook_ids_json TEXT NOT NULL DEFAULT '[]',
                     schedule_enabled INTEGER NOT NULL DEFAULT 0,
                     chat_session_id TEXT NOT NULL DEFAULT '',
@@ -221,7 +221,7 @@ class LocalDBManager:
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS chat_sessions (
                     id TEXT PRIMARY KEY,
-                    user_id TEXT NOT NULL DEFAULT 'mikko',
+                    user_id TEXT NOT NULL DEFAULT 'alex',
                     project_id TEXT NOT NULL DEFAULT '',
                     title TEXT NOT NULL DEFAULT 'New chat',
                     summary_md TEXT NOT NULL DEFAULT '',
@@ -249,7 +249,7 @@ class LocalDBManager:
                     id TEXT PRIMARY KEY,
                     task_type TEXT NOT NULL DEFAULT 'deep_research',
                     query TEXT NOT NULL,
-                    username TEXT NOT NULL DEFAULT 'mikko',
+                    username TEXT NOT NULL DEFAULT 'alex',
                     notebook_ids_json TEXT NOT NULL DEFAULT '[]',
                     source_doc_names_json TEXT NOT NULL DEFAULT '[]',
                     max_web_sources INTEGER NOT NULL DEFAULT 3,
@@ -290,7 +290,7 @@ class LocalDBManager:
             self._ensure_column(cur, "kanban_tasks", "root_task_id", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(cur, "kanban_tasks", "parent_task_id", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(cur, "kanban_tasks", "version", "INTEGER NOT NULL DEFAULT 1")
-            self._ensure_column(cur, "kanban_tasks", "username", "TEXT NOT NULL DEFAULT 'mikko'")
+            self._ensure_column(cur, "kanban_tasks", "username", "TEXT NOT NULL DEFAULT 'alex'")
             self._ensure_column(cur, "kanban_tasks", "notebook_ids_json", "TEXT NOT NULL DEFAULT '[]'")
             self._ensure_column(cur, "kanban_tasks", "schedule_enabled", "INTEGER NOT NULL DEFAULT 0")
             self._ensure_column(cur, "kanban_tasks", "chat_session_id", "TEXT NOT NULL DEFAULT ''")
@@ -594,7 +594,7 @@ class LocalDBManager:
     # AGENT MEMORIES & SKILLS CRUD
     # =========================================================================
 
-    def get_agent_memory(self, agent_id: str, user_id: str = "mikko", project_id: str = "") -> Optional[str]:
+    def get_agent_memory(self, agent_id: str, user_id: str = "alex", project_id: str = "") -> Optional[str]:
         """Fetches persistent workspace memory scoped to an agent, user, and project."""
         try:
             conn = self._get_connection()
@@ -654,7 +654,7 @@ class LocalDBManager:
                 INSERT INTO chat_sessions (id, user_id, project_id, title, updated_at)
                 VALUES (?, ?, ?, ?, datetime('now'))
                 """,
-                (session_id, user_id or "mikko", project_id or "", self._normalise_chat_title(title)),
+                (session_id, user_id or "alex", project_id or "", self._normalise_chat_title(title)),
             )
             conn.commit()
             return self.get_chat_session(session_id, user_id, project_id) or {}
@@ -682,7 +682,7 @@ class LocalDBManager:
                 WHERE s.id = ? AND s.user_id = ?
                 GROUP BY s.id
                 """,
-                (session_id, user_id or "mikko"),
+                (session_id, user_id or "alex"),
             ).fetchone()
             return dict(row) if row else None
         except Exception as e:
@@ -707,7 +707,7 @@ class LocalDBManager:
                 ORDER BY s.updated_at DESC, s.created_at DESC
                 LIMIT ?
                 """,
-                (user_id or "mikko", max(1, min(limit, 200))),
+                (user_id or "alex", max(1, min(limit, 200))),
             ).fetchall()
             return [dict(row) for row in rows]
         except Exception as e:
@@ -798,7 +798,7 @@ class LocalDBManager:
             conn = self._get_connection()
             session = conn.execute(
                 "SELECT s.title, COUNT(m.id) AS message_count FROM chat_sessions AS s LEFT JOIN chat_messages AS m ON m.session_id = s.id WHERE s.id = ? AND s.user_id = ? GROUP BY s.id",
-                (session_id, user_id or "mikko"),
+                (session_id, user_id or "alex"),
             ).fetchone()
             if not session:
                 return None
@@ -872,7 +872,7 @@ class LocalDBManager:
                 SET summary_md = ?, summary_through_message_id = ?, updated_at = datetime('now')
                 WHERE id = ? AND user_id = ?
                 """,
-                (summary_md.strip()[:12000], through_message_id, session_id, user_id or "mikko"),
+                (summary_md.strip()[:12000], through_message_id, session_id, user_id or "alex"),
             )
             conn.commit()
             return cur.rowcount > 0
@@ -890,7 +890,7 @@ class LocalDBManager:
             conn = self._get_connection()
             cur = conn.execute(
                 "DELETE FROM chat_sessions WHERE id = ? AND user_id = ?",
-                (session_id, user_id or "mikko"),
+                (session_id, user_id or "alex"),
             )
             conn.commit()
             return cur.rowcount > 0
@@ -1082,6 +1082,24 @@ class LocalDBManager:
         except Exception as exc:
             logger.error("Error saving partner company %s: %s", safe_name, exc)
             return None
+        finally:
+            if conn:
+                conn.close()
+
+    def delete_partner_company(self, company_id: str) -> bool:
+        if not company_id:
+            return False
+        conn = None
+        try:
+            conn = self._get_connection()
+            # Update associated notebooks to drop this company_id before deleting
+            conn.execute("UPDATE notebooks SET company_id = '' WHERE company_id = ?", (company_id,))
+            cursor = conn.execute("DELETE FROM partner_companies WHERE id = ?", (company_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as exc:
+            logger.error("Error deleting partner company %s: %s", company_id, exc)
+            return False
         finally:
             if conn:
                 conn.close()
@@ -2225,7 +2243,7 @@ class LocalDBManager:
         scheduled_time: str,
         scheduled_timezone: str = "UTC",
         *,
-        username: str = "mikko",
+        username: str = "alex",
         notebook_ids: Optional[List[str]] = None,
         schedule_enabled: bool = False,
         chat_session_id: str = "",
@@ -2250,7 +2268,7 @@ class LocalDBManager:
                     root_task_id or task_id,
                     parent_task_id,
                     max(1, int(version)),
-                    (username or "mikko")[:100],
+                    (username or "alex")[:100],
                     json.dumps(notebook_ids or []),
                     int(bool(schedule_enabled)),
                     (chat_session_id or "")[:100],
@@ -2387,15 +2405,15 @@ class LocalDBManager:
             if conn:
                 conn.close()
 
-    def delete_pending_kanban_task(self, task_id: str) -> bool:
+    def delete_kanban_task(self, task_id: str) -> bool:
         conn = None
         try:
             conn = self._get_connection()
-            result = conn.execute("DELETE FROM kanban_tasks WHERE id = ? AND status = 'pending'", (task_id,))
+            result = conn.execute("DELETE FROM kanban_tasks WHERE id = ? AND status != 'running'", (task_id,))
             conn.commit()
             return result.rowcount > 0
         except Exception as exc:
-            logger.error("Error deleting pending Kanban task %s: %s", task_id, exc)
+            logger.error("Error deleting Kanban task %s: %s", task_id, exc)
             return False
         finally:
             if conn:
@@ -2472,7 +2490,7 @@ class LocalDBManager:
                     root_id,
                     original["id"],
                     version,
-                    original.get("username") or "mikko",
+                    original.get("username") or "alex",
                     original.get("notebook_ids_json") or "[]",
                 ),
             )

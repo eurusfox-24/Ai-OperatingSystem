@@ -96,7 +96,7 @@ export class RobotCanvasVisualizer {
     }
   } = {
     'ManagerAgent': {
-      name: 'Manager Agent (Mikko)',
+      name: 'Manager Agent (Alex)',
       color: '#10b981',
       charIdx: 0,
       workCol: 3,

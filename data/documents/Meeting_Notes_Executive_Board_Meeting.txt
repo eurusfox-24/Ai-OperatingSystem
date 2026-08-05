@@ -35,7 +35,7 @@ The board discussed a strategic investment allocation to support venture scaling
 
 | Owner | Task | Target Deadline |
 |---|---|---|
-| Mikko | Finalize and document the €2.5M allocation plan for Susicorn venture scaling | ASAP / before next board cycle |
+| Alex | Finalize and document the €2.5M allocation plan for Susicorn venture scaling | ASAP / before next board cycle |
 | Advisory Board / Program Lead | Establish KPI tracking for the 150-job target and define reporting cadence | Within 30 days |
 | Susicorn Leadership | Provide a scaling roadmap showing hiring milestones and capital use plan | Before next quarterly review |
 | Finance / Operations | Confirm disbursement schedule and any conditions tied to funding release | Within 2 weeks |
@@ -68,5 +68,5 @@ If you want, I can also convert this into a **formal board minutes template** or
 Raw Content:
 Please process meeting transcript: Title: Bioeconomy Advisory Board Q3 Sync
 Transcript:
-Mikko: We are allocating €2.5M to Susicorn venture scaling in Joensuu.
+Alex: We are allocating €2.5M to Susicorn venture scaling in Joensuu.
 Advisor: Verified. Target job creation is 150 high-tech jobs by Q4 2026.

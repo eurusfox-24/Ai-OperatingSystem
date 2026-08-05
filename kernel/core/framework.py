@@ -19,7 +19,7 @@ class AgentTask(BaseModel):
     task_type: str
     prompt: str
     context: Dict[str, Any] = Field(default_factory=dict)
-    username: str = "mikko"
+    username: str = "alex"
 
 class AgentResult(BaseModel):
     task_id: str
@@ -81,11 +81,11 @@ class BaseAgent:
                 self.max_tokens = profile["max_tokens"]
             logger.info(f"Loaded persisted profile for {self.name} [{self.agent_type}] from local SQLite.")
 
-    def get_system_prompt(self, user_id: str = "mikko", current_query: str = "", project_id: str = "") -> str:
+    def get_system_prompt(self, user_id: str = "alex", current_query: str = "", project_id: str = "") -> str:
         """Returns the compiled 4-tier ChatML system prompt from SQLite."""
         return self.compile_system_prompt(user_id=user_id, current_query=current_query, project_id=project_id)
 
-    def compile_system_prompt(self, user_id: str = "mikko", current_query: str = "", project_id: str = "") -> str:
+    def compile_system_prompt(self, user_id: str = "alex", current_query: str = "", project_id: str = "") -> str:
         """Compiles a 4-tier Hermes-style ChatML system prompt from SQLite database.
 
         Tiers:

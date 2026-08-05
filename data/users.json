@@ -1,8 +1,8 @@
 {
-  "mikko": {
-    "username": "mikko",
+  "alex": {
+    "username": "alex",
     "password": "joensuu123",
-    "display_name": "Mikko J\u00e4rvilehto",
+    "display_name": "Alex J\u00e4rvilehto",
     "role": "Executive Board Lead (Business Joensuu)",
     "tone_style": "formal_executive",
     "custom_instructions": "Focus on high-level strategic alignment, private-sector job creation, and Susicorn scaling. Keep intro short and actionable."
