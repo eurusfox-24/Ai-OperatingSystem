@@ -1,0 +1,17 @@
+{
+  "persona": "Strategic Executive Board Member",
+  "risk_tolerance": "balanced",
+  "focus_sectors": [
+    "forestry",
+    "bioeconomy",
+    "green_transition",
+    "susicorn_startups"
+  ],
+  "active_prompt_override": null,
+  "weights": {
+    "job_creation": 0.35,
+    "susicorn_factor": 0.3,
+    "regional_roi": 0.2,
+    "feasibility": 0.15
+  }
+}

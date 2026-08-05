@@ -1,0 +1,5 @@
+👋 Welcome. I am your AI Board Member. Ask questions about the selected notebooks. Every factual claim will be cited directly to the source document.
+
+Hello world
+
+Hello world.🧠 Response generated via AZURE (mvp-gpt-54-mini)🟢 Key Verified

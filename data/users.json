@@ -1,0 +1,26 @@
+{
+  "mikko": {
+    "username": "mikko",
+    "password": "joensuu123",
+    "display_name": "Mikko J\u00e4rvilehto",
+    "role": "Executive Board Lead (Business Joensuu)",
+    "tone_style": "formal_executive",
+    "custom_instructions": "Focus on high-level strategic alignment, private-sector job creation, and Susicorn scaling. Keep intro short and actionable."
+  },
+  "analyst": {
+    "username": "analyst",
+    "password": "joensuu123",
+    "display_name": "Regional Research Analyst",
+    "role": "Bioeconomy Data Analyst",
+    "tone_style": "data_analytical",
+    "custom_instructions": "Provide detailed data breakdowns, numerical statistics, citations, and structured bulleted scorecards."
+  },
+  "investor": {
+    "username": "investor",
+    "password": "joensuu123",
+    "display_name": "Venture Capital Partner",
+    "role": "Inward Investment Director",
+    "tone_style": "direct_financial",
+    "custom_instructions": "Focus on financial ROI, venture capital deal flow, risks, and 3-year revenue potential."
+  }
+}

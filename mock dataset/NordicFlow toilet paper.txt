@@ -1,0 +1,27 @@
+NordicFlow Manufacturing Oy has introduced a new high-speed toilet paper production machine called the NF-TissuePro 9000. The machine is designed for medium-sized and large paper manufacturing companies that need to increase production capacity while reducing material waste, energy consumption, and maintenance downtime.
+
+The NF-TissuePro 9000 can process up to 900 metres of tissue paper per minute. It converts large parent tissue rolls into finished toilet paper rolls through a fully automated production line. The machine performs several operations, including paper unwinding, embossing, perforation, rewinding, log cutting, roll inspection, and packaging preparation.
+
+One of the machine’s main features is its intelligent speed-control system. Sensors continuously measure paper tension, thickness, moisture level, and roll alignment. The system automatically adjusts the operating speed when it detects changes in the material. This reduces paper tearing and prevents uneven rolls from reaching the packaging stage.
+
+The machine can produce approximately 18,000 standard toilet paper rolls per hour under normal operating conditions. Production capacity may vary depending on the paper quality, roll size, number of layers, and embossing pattern. The machine supports one-layer, two-layer, three-layer, and four-layer toilet paper products.
+
+The NF-TissuePro 9000 includes an automatic core-feeding system. Cardboard cores are placed into a storage unit and transferred into the production line without manual handling. The machine can also manufacture coreless toilet paper rolls when the coreless production mode is activated.
+
+A digital control panel allows operators to select different product configurations. Operators can define the roll diameter, sheet length, perforation distance, number of sheets per roll, paper layer count, and embossing pressure. Production recipes can be saved and reused, allowing the factory to switch between different toilet paper products quickly.
+
+The machine uses artificial intelligence to identify possible production defects. High-resolution cameras inspect each roll for incorrect cutting, loose winding, damaged edges, missing perforations, and uneven paper layers. Defective rolls are automatically removed from the production line and recorded in the quality-control database.
+
+NordicFlow estimates that the NF-TissuePro 9000 can reduce tissue paper waste by up to 14 percent compared with older production systems. Its energy-efficient motors and automatic standby mode can also reduce electricity consumption by approximately 11 percent during normal factory operations.
+
+Safety is supported through protective covers, emergency-stop buttons, light curtains, automatic shutdown sensors, and restricted maintenance access. If an operator enters a protected area while the machine is running, the relevant section stops immediately. Warning lights and audio alerts inform workers about faults, maintenance requirements, and production changes.
+
+The machine has a modular design, meaning individual sections can be repaired or upgraded without replacing the entire production line. Important components such as cutting blades, rollers, motors, cameras, and sensors can be accessed through separate maintenance panels. Predictive maintenance software monitors vibration, temperature, motor performance, and blade condition. It alerts the maintenance team before a component is likely to fail.
+
+The NF-TissuePro 9000 can connect to factory management systems using Ethernet, OPC UA, and industrial communication protocols. Production managers can view real-time information such as output volume, machine speed, waste percentage, energy consumption, downtime, and quality inspection results.
+
+The standard machine requires an installation area of approximately 38 metres by 8 metres. It operates using a 400-volt industrial electrical supply and requires compressed air for selected mechanical functions. The complete system weighs approximately 42 tonnes.
+
+NordicFlow Manufacturing Oy provides installation, operator training, remote technical support, and a two-year standard warranty. The estimated starting price is €2.8 million, depending on optional equipment and factory requirements. Optional features include automatic packaging, robotic palletising, cloud-based monitoring, custom embossing designs, and additional quality-control cameras.
+
+The company expects the NF-TissuePro 9000 to help tissue manufacturers increase production speed, improve product consistency, reduce operational costs, and respond more quickly to changing customer demand.
