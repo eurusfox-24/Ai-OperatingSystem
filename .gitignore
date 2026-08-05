@@ -12,3 +12,4 @@ data/*.db
 data/api_usage.json
 data/api_keys.json
 
+.od-skills/

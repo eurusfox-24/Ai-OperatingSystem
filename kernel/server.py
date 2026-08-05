@@ -45,7 +45,7 @@ class CustomizationRequest(BaseModel):
 
 class PromptRequest(BaseModel):
     prompt: str
-    username: Optional[str] = "mikko"
+    username: Optional[str] = "alex"
     session_id: Optional[str] = None
     image_data: Optional[str] = None
     # One Manager model decides whether tools are needed. Explicit deep
@@ -56,12 +56,12 @@ class PromptRequest(BaseModel):
     source_document_names: List[str] = []
 
 class ChatSessionCreateRequest(BaseModel):
-    username: Optional[str] = "mikko"
+    username: Optional[str] = "alex"
     project_id: Optional[str] = None
     title: Optional[str] = "New chat"
 
 class ChatSessionMessageRequest(BaseModel):
-    username: Optional[str] = "mikko"
+    username: Optional[str] = "alex"
     project_id: Optional[str] = None
     role: Literal["user", "assistant"]
     content_md: str
@@ -97,7 +97,7 @@ class PartnerCompanyRequest(BaseModel):
 
 class AutonomousResearchRequest(BaseModel):
     query: str
-    username: Optional[str] = "mikko"
+    username: Optional[str] = "alex"
     notebook_ids: List[str] = []
     project_id: Optional[str] = None
     source_document_names: List[str] = []
@@ -106,7 +106,7 @@ class AutonomousResearchRequest(BaseModel):
 
 class AutonomousApprovalDecision(BaseModel):
     status: Literal["approved", "rejected"]
-    decided_by: Optional[str] = "mikko"
+    decided_by: Optional[str] = "alex"
 
 class AutonomousSteeringRequest(BaseModel):
     direction: str
@@ -361,27 +361,27 @@ def update_customization_endpoint(req: CustomizationRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/api/chat/sessions")
-def list_chat_sessions_endpoint(username: str = Query("mikko"), project_id: str = Query("")):
+def list_chat_sessions_endpoint(username: str = Query("alex"), project_id: str = Query("")):
     """Lists all conversations for the signed-in user.
 
     Project and file selection is request context for the Manager; it does not
     select a different conversation namespace.
     """
-    return {"sessions": db_manager.list_chat_sessions(username or "mikko", "")}
+    return {"sessions": db_manager.list_chat_sessions(username or "alex", "")}
 
 @app.post("/api/chat/sessions")
 def create_chat_session_endpoint(req: ChatSessionCreateRequest):
     session = db_manager.create_chat_session(
-        req.username or "mikko", (req.project_id or "").strip(), req.title or "New chat"
+        req.username or "alex", (req.project_id or "").strip(), req.title or "New chat"
     )
     if not session:
         raise HTTPException(status_code=500, detail="Unable to create a chat session")
     return {"status": "success", "session": session}
 
 @app.get("/api/chat/sessions/{session_id}")
-def get_chat_session_endpoint(session_id: str, username: str = Query("mikko"), project_id: str = Query("")):
-    session = db_manager.get_chat_session(session_id, username or "mikko", "")
-    messages = db_manager.get_chat_session_messages(session_id, username or "mikko", "")
+def get_chat_session_endpoint(session_id: str, username: str = Query("alex"), project_id: str = Query("")):
+    session = db_manager.get_chat_session(session_id, username or "alex", "")
+    messages = db_manager.get_chat_session_messages(session_id, username or "alex", "")
     if not session or messages is None:
         raise HTTPException(status_code=404, detail="Chat session not found")
     return {"session": session, "messages": messages}
@@ -390,7 +390,7 @@ def get_chat_session_endpoint(session_id: str, username: str = Query("mikko"), p
 def append_chat_session_message_endpoint(session_id: str, req: ChatSessionMessageRequest):
     message_id = db_manager.append_chat_message(
         session_id,
-        req.username or "mikko",
+        req.username or "alex",
         "",
         req.role,
         req.content_md,
@@ -401,8 +401,8 @@ def append_chat_session_message_endpoint(session_id: str, req: ChatSessionMessag
     return {"status": "success", "message_id": message_id}
 
 @app.delete("/api/chat/sessions/{session_id}")
-def delete_chat_session_endpoint(session_id: str, username: str = Query("mikko"), project_id: str = Query("")):
-    if not db_manager.delete_chat_session(session_id, username or "mikko", ""):
+def delete_chat_session_endpoint(session_id: str, username: str = Query("alex"), project_id: str = Query("")):
+    if not db_manager.delete_chat_session(session_id, username or "alex", ""):
         raise HTTPException(status_code=404, detail="Chat session not found")
     return {"status": "success"}
 
@@ -421,7 +421,7 @@ async def steer_manager_chat_endpoint(session_id: str, req: AutonomousSteeringRe
 async def _execute_chat_request(
     req: PromptRequest, stream_callback: Optional[Callable[[str], None]] = None
 ):
-    user_name = req.username or "mikko"
+    user_name = req.username or "alex"
     try:
         notebook_ids, scoped_sources, project_id, project_names, business_context = resolve_selected_project_scope(
             req.notebook_ids, req.source_document_names
@@ -587,7 +587,7 @@ async def create_autonomous_research_endpoint(req: AutonomousResearchRequest):
     if not db_manager.create_autonomous_task(
         task_id,
         query,
-        req.username or "mikko",
+        req.username or "alex",
         notebook_ids,
         scoped_sources,
         max_web_sources,
@@ -653,7 +653,7 @@ async def steer_autonomous_task_endpoint(task_id: str, req: AutonomousSteeringRe
 @app.post("/api/autonomy/approvals/{approval_id}")
 def decide_autonomous_approval_endpoint(approval_id: int, req: AutonomousApprovalDecision):
     """Records a human decision; approval alone never grants arbitrary shell access."""
-    if not db_manager.decide_autonomous_approval(approval_id, req.status, req.decided_by or "mikko"):
+    if not db_manager.decide_autonomous_approval(approval_id, req.status, req.decided_by or "alex"):
         raise HTTPException(status_code=404, detail="Pending approval not found")
     return {"status": "success"}
 
@@ -718,6 +718,13 @@ def update_partner_company_endpoint(company_id: str, req: PartnerCompanyRequest)
     if not company:
         raise HTTPException(status_code=404, detail="Partner company not found")
     return {"status": "success", "company": company}
+
+@app.delete("/api/business-context/companies/{company_id}")
+def delete_partner_company_endpoint(company_id: str):
+    success = db_manager.delete_partner_company(company_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Partner company not found or unable to delete")
+    return {"status": "success"}
 
 @app.post("/api/notebooks")
 def create_notebook_endpoint(req: NotebookCreateRequest):
@@ -803,7 +810,7 @@ background_tasks = set()
 class AgentTaskDispatchRequest(BaseModel):
     agent_type: str
     prompt: str
-    username: Optional[str] = "mikko"
+    username: Optional[str] = "alex"
     project_id: Optional[str] = None
     source_document_names: List[str] = []
 
@@ -822,7 +829,7 @@ async def dispatch_agent_task_endpoint(req: AgentTaskDispatchRequest):
     task = AgentTask(
         task_type=req.agent_type,
         prompt=req.prompt,
-        username=req.username or "mikko",
+        username=req.username or "alex",
         context={"project_id": project_id, "notebook_ids": [project_id] if project_id else [], "allowed_source_names": scoped_sources},
     )
     import asyncio
@@ -892,7 +899,7 @@ async def websocket_endpoint(websocket: WebSocket):
 # --- Kanban API Endpoints ---
 class KanbanTaskRequest(BaseModel):
     prompt: str
-    username: str = "mikko"
+    username: str = "alex"
     notebook_ids: List[str] = []
     scheduled_time: Optional[str] = None
     timezone: str = "UTC"
@@ -976,7 +983,7 @@ async def execute_kanban_task(task_id: str) -> None:
             AgentTask(
                 task_type="kanban_task",
                 prompt=task["prompt"],
-                username=task.get("username") or "mikko",
+                username=task.get("username") or "alex",
                 context={
                     "research_mode": "rag_internet",
                     "notebook_ids": notebook_ids,
@@ -996,7 +1003,7 @@ async def execute_kanban_task(task_id: str) -> None:
         if chat_session_id:
             db_manager.append_chat_message(
                 chat_session_id,
-                task.get("username") or "mikko",
+                task.get("username") or "alex",
                 project_id,
                 "assistant",
                 response_md,
@@ -1058,8 +1065,8 @@ def get_kanban_task(task_id: str):
 
 @app.delete("/api/tasks/{task_id}")
 async def delete_kanban_task(task_id: str):
-    if not db_manager.delete_pending_kanban_task(task_id):
-        raise HTTPException(status_code=409, detail="Only pending tasks can be deleted")
+    if not db_manager.delete_kanban_task(task_id):
+        raise HTTPException(status_code=409, detail="Only pending or completed tasks can be deleted")
     await event_bus.broadcast("KANBAN_TASK_UPDATED", {"task_id": task_id, "status": "deleted"})
     return {"status": "deleted"}
 

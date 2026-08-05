@@ -25,7 +25,7 @@ export class SocketClient {
     this.intentionalClose = false;
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const configuredKernel = (globalThis as typeof globalThis & { __AI_OS_WS_URL__?: string }).__AI_OS_WS_URL__;
-    const wsUrl = configuredKernel || `${protocol}//${window.location.hostname}:8000/ws`;
+    const wsUrl = configuredKernel || `${protocol}//${window.location.host}/ws`;
     console.log(`Connecting WebSocket to ${wsUrl}...`);
 
     this.ws = new WebSocket(wsUrl);
