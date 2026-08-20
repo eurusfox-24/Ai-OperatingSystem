@@ -6,7 +6,7 @@ load_dotenv()
 
 class AzureOpenAISettings(BaseModel):
     endpoint: str = os.getenv("AZURE_OPENAI_ENDPOINT", "https://mvp-ai-20260618.openai.azure.com/")
-    api_key: str = os.getenv("AZURE_OPENAI_API_KEY", "CPNrDwHbA2MNPz4BHgoHb607A4O9BllVyu9fH4hJF0RsMmfeo4QgJQQJ99CFACfhMk5XJ3w3AAABACOGXPcv")
+    api_key: str = os.getenv("AZURE_OPENAI_API_KEY", "")
     api_version: str = os.getenv("AZURE_OPENAI_API_VERSION", "2024-10-21")
     default_deployment: str = os.getenv("AZURE_OPENAI_DEPLOYMENT", "mvp-gpt-54-mini")
     high_reasoning_deployment: str = os.getenv("AZURE_OPENAI_HIGH_REASONING", "mvp-gpt-54")
