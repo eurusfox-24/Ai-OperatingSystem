@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class AzureOpenAISettings(BaseModel):
-    endpoint: str = os.getenv("AZURE_OPENAI_ENDPOINT", "https://mvp-ai-20260618.openai.azure.com/")
+    endpoint: str = os.getenv("AZURE_OPENAI_ENDPOINT", "")
     # Credentials must come from the environment.
     # Never add a source-code fallback here: repository history is not a secret store.
     api_key: str = os.getenv("AZURE_OPENAI_API_KEY", "")

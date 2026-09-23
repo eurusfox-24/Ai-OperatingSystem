@@ -28,4 +28,7 @@ scratch/verify_*.py
 ui/test-results/
 ui/playwright-report/
 
-
+# Supervisor hand-off documentation (strictly untracked)
+*supervisor*
+docs/supervisor/
+SUPERVISOR_*.md
