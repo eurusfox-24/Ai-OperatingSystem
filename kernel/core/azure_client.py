@@ -24,6 +24,8 @@ class AzureOpenAIClient:
         max_tokens: int = 1500,
         tools: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
+        if not self.endpoint or not self.api_key:
+            raise RuntimeError("AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY must be configured")
         target_deployment = deployment or self.default_deployment
         url = f"{self.endpoint}/openai/deployments/{target_deployment}/chat/completions?api-version={self.api_version}"
         
@@ -44,9 +46,12 @@ class AzureOpenAIClient:
         req = urllib.request.Request(url, data=data, headers=headers)
         
         try:
-            with urllib.request.urlopen(req) as response:
+            with urllib.request.urlopen(req, timeout=60) as response:
                 res_body = json.loads(response.read().decode("utf-8"))
-                choice = res_body["choices"][0]
+                choices = res_body.get("choices")
+                if not choices:
+                    raise ValueError(f"Azure OpenAI returned no choices in response: {res_body}")
+                choice = choices[0]
                 return {
                     "role": choice["message"]["role"],
                     "content": choice["message"].get("content", ""),
@@ -58,6 +63,8 @@ class AzureOpenAIClient:
             raise e
 
     def get_embedding(self, text: str) -> List[float]:
+        if not self.endpoint or not self.api_key:
+            raise RuntimeError("AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY must be configured")
         url = f"{self.endpoint}/openai/deployments/{self.embedding_deployment}/embeddings?api-version={self.api_version}"
         headers = {
             "Content-Type": "application/json",
@@ -68,9 +75,12 @@ class AzureOpenAIClient:
         req = urllib.request.Request(url, data=data, headers=headers)
         
         try:
-            with urllib.request.urlopen(req) as response:
+            with urllib.request.urlopen(req, timeout=60) as response:
                 res_body = json.loads(response.read().decode("utf-8"))
-                return res_body["data"][0]["embedding"]
+                data = res_body.get("data")
+                if not data:
+                    raise ValueError(f"Azure OpenAI returned no data in embedding response: {res_body}")
+                return data[0]["embedding"]
         except Exception as e:
             logger.error(f"Azure OpenAI Embedding Error: {e}")
             raise e

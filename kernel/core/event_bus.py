@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Set, Dict, Any
+from typing import Set, Dict, Any, Optional
 from fastapi import WebSocket
 
 logger = logging.getLogger("event_bus")
@@ -11,8 +11,8 @@ class EventBus:
     def __init__(self):
         self.active_connections: Set[WebSocket] = set()
 
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
+    async def connect(self, websocket: WebSocket, subprotocol: Optional[str] = None):
+        await websocket.accept(subprotocol=subprotocol)
         self.active_connections.add(websocket)
         logger.info(f"Client connected. Active clients: {len(self.active_connections)}")
 
@@ -35,7 +35,7 @@ class EventBus:
                 disconnected.add(connection)
         
         for conn in disconnected:
-            self.active_connections.remove(conn)
+            self.active_connections.discard(conn)
 
     async def notify_agent_spawned(self, agent_id: str, name: str, agent_type: str, role_label: str, color: str = "#4CAF50"):
         await self.broadcast("AGENT_SPAWNED", {

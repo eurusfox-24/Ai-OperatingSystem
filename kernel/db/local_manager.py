@@ -4,7 +4,9 @@ import struct
 import time
 import logging
 import json
+from pathlib import Path
 from typing import Optional, Dict, Any, List
+from kernel.core.config import settings
 
 logger = logging.getLogger("local_db_manager")
 
@@ -16,8 +18,10 @@ except ImportError:
     HAS_SQLITE_VEC = False
     logger.warning("sqlite-vec not installed. Vector search will use in-memory fallback.")
 
-DB_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data"))
-DB_PATH = os.path.join(DB_DIR, "kernel_workspace.db")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_configured_db_path = Path(settings.local_db.db_path).expanduser()
+DB_PATH = str((_configured_db_path if _configured_db_path.is_absolute() else PROJECT_ROOT / _configured_db_path).resolve())
+DB_DIR = str(Path(DB_PATH).parent)
 
 
 def _serialize_float32(vec: List[float]) -> bytes:
@@ -84,9 +88,16 @@ class LocalDBManager:
                     profile_md TEXT NOT NULL DEFAULT '',
                     tone_style TEXT NOT NULL DEFAULT 'formal_executive',
                     custom_instructions TEXT NOT NULL DEFAULT '',
+                    language TEXT NOT NULL DEFAULT 'en',
                     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
                 )
             """)
+
+            # Migration: add language column to existing user_profiles
+            try:
+                cur.execute("ALTER TABLE user_profiles ADD COLUMN language TEXT NOT NULL DEFAULT 'en'")
+            except sqlite3.OperationalError:
+                pass # Column already exists
 
             # Document metadata table
             cur.execute("""
@@ -158,7 +169,7 @@ class LocalDBManager:
             """)
             cur.execute("""
                 INSERT OR IGNORE INTO organization_context (id, name)
-                VALUES ('forest_joensuu', 'Forest Joensuu')
+                VALUES ('forest_joensuu', 'The Company')
             """)
 
             cur.execute("""
@@ -282,6 +293,8 @@ class LocalDBManager:
             self._ensure_column(cur, "autonomous_tasks", "cancel_requested", "INTEGER NOT NULL DEFAULT 0")
             self._ensure_column(cur, "autonomous_tasks", "cancel_reason", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(cur, "autonomous_tasks", "last_action", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(cur, "autonomous_tasks", "updated_at", "TEXT NOT NULL DEFAULT ''")
+            cur.execute("UPDATE autonomous_tasks SET updated_at = created_at WHERE updated_at = ''")
             self._ensure_column(cur, "chat_sessions", "summary_md", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(cur, "chat_sessions", "summary_through_message_id", "INTEGER NOT NULL DEFAULT 0")
             self._ensure_column(cur, "kanban_tasks", "scheduled_timezone", "TEXT NOT NULL DEFAULT 'UTC'")
@@ -346,6 +359,192 @@ class LocalDBManager:
                 )
             """)
 
+            # General goal-driven agent orchestration. These tables are kept
+            # separate from the legacy deep-research runner so existing tasks
+            # remain backwards compatible while goals can coordinate several
+            # specialist agents, survive restarts, and expose a complete audit
+            # trail to the Agent Control Center.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS agentic_goals (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    objective TEXT NOT NULL,
+                    success_criteria_md TEXT NOT NULL DEFAULT '',
+                    username TEXT NOT NULL DEFAULT 'alex',
+                    project_id TEXT NOT NULL DEFAULT '',
+                    notebook_ids_json TEXT NOT NULL DEFAULT '[]',
+                    source_doc_names_json TEXT NOT NULL DEFAULT '[]',
+                    web_access INTEGER NOT NULL DEFAULT 0,
+                    status TEXT NOT NULL DEFAULT 'draft'
+                        CHECK(status IN ('draft','queued','planning','running','waiting_approval','paused','completed','failed','cancelled')),
+                    plan_version INTEGER NOT NULL DEFAULT 0,
+                    max_steps INTEGER NOT NULL DEFAULT 12,
+                    max_retries INTEGER NOT NULL DEFAULT 1,
+                    max_runtime_minutes INTEGER NOT NULL DEFAULT 30,
+                    max_cost_usd REAL NOT NULL DEFAULT 5.0,
+                    spent_cost_usd REAL NOT NULL DEFAULT 0.0,
+                    steering_md TEXT NOT NULL DEFAULT '',
+                    result_md TEXT NOT NULL DEFAULT '',
+                    error_message TEXT NOT NULL DEFAULT '',
+                    cancel_requested INTEGER NOT NULL DEFAULT 0,
+                    pause_requested INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    started_at TEXT,
+                    completed_at TEXT
+                    ,work_type TEXT NOT NULL DEFAULT 'project_assessment'
+                    ,source_type TEXT NOT NULL DEFAULT 'ui'
+                    ,source_ref TEXT NOT NULL DEFAULT ''
+                    ,schedule_enabled INTEGER NOT NULL DEFAULT 0
+                    ,scheduled_at TEXT
+                    ,scheduled_timezone TEXT NOT NULL DEFAULT 'UTC'
+                    ,chat_session_id TEXT NOT NULL DEFAULT ''
+                    ,root_goal_id TEXT NOT NULL DEFAULT ''
+                    ,parent_goal_id TEXT NOT NULL DEFAULT ''
+                    ,version INTEGER NOT NULL DEFAULT 1
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS agentic_tasks (
+                    id TEXT PRIMARY KEY,
+                    goal_id TEXT NOT NULL REFERENCES agentic_goals(id) ON DELETE CASCADE,
+                    plan_version INTEGER NOT NULL DEFAULT 1,
+                    sequence_no INTEGER NOT NULL DEFAULT 0,
+                    title TEXT NOT NULL,
+                    instructions TEXT NOT NULL,
+                    agent_type TEXT NOT NULL DEFAULT 'ManagerAgent',
+                    capability TEXT NOT NULL DEFAULT 'analysis',
+                    risk_level TEXT NOT NULL DEFAULT 'read'
+                        CHECK(risk_level IN ('read','internal_write','external_draft','consequential')),
+                    status TEXT NOT NULL DEFAULT 'pending'
+                        CHECK(status IN ('pending','blocked','queued','running','waiting_approval','completed','failed','cancelled','skipped')),
+                    depends_on_json TEXT NOT NULL DEFAULT '[]',
+                    input_json TEXT NOT NULL DEFAULT '{}',
+                    output_json TEXT NOT NULL DEFAULT '{}',
+                    attempt_count INTEGER NOT NULL DEFAULT 0,
+                    max_attempts INTEGER NOT NULL DEFAULT 2,
+                    idempotency_key TEXT NOT NULL UNIQUE,
+                    approval_id INTEGER,
+                    error_message TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    started_at TEXT,
+                    completed_at TEXT
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS agentic_action_proposals (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    goal_id TEXT NOT NULL REFERENCES agentic_goals(id) ON DELETE CASCADE,
+                    task_id TEXT REFERENCES agentic_tasks(id) ON DELETE CASCADE,
+                    action_type TEXT NOT NULL,
+                    risk_level TEXT NOT NULL DEFAULT 'consequential',
+                    summary TEXT NOT NULL,
+                    payload_json TEXT NOT NULL DEFAULT '{}',
+                    status TEXT NOT NULL DEFAULT 'pending'
+                        CHECK(status IN ('pending','approved','rejected','executed','expired')),
+                    idempotency_key TEXT NOT NULL UNIQUE,
+                    decided_by TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    decided_at TEXT,
+                    executed_at TEXT
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS agentic_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    goal_id TEXT NOT NULL REFERENCES agentic_goals(id) ON DELETE CASCADE,
+                    task_id TEXT REFERENCES agentic_tasks(id) ON DELETE CASCADE,
+                    event_type TEXT NOT NULL,
+                    actor TEXT NOT NULL DEFAULT 'system',
+                    message TEXT NOT NULL DEFAULT '',
+                    metadata_json TEXT NOT NULL DEFAULT '{}',
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS agentic_artifacts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    goal_id TEXT NOT NULL REFERENCES agentic_goals(id) ON DELETE CASCADE,
+                    task_id TEXT REFERENCES agentic_tasks(id) ON DELETE SET NULL,
+                    artifact_type TEXT NOT NULL DEFAULT 'report',
+                    title TEXT NOT NULL DEFAULT '',
+                    content_md TEXT NOT NULL DEFAULT '',
+                    evidence_json TEXT NOT NULL DEFAULT '[]',
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                )
+            """)
+            self._ensure_column(cur, "agentic_goals", "work_type", "TEXT NOT NULL DEFAULT 'project_assessment'")
+            self._ensure_column(cur, "agentic_goals", "source_type", "TEXT NOT NULL DEFAULT 'ui'")
+            self._ensure_column(cur, "agentic_goals", "source_ref", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(cur, "agentic_goals", "schedule_enabled", "INTEGER NOT NULL DEFAULT 0")
+            self._ensure_column(cur, "agentic_goals", "scheduled_at", "TEXT")
+            self._ensure_column(cur, "agentic_goals", "scheduled_timezone", "TEXT NOT NULL DEFAULT 'UTC'")
+            self._ensure_column(cur, "agentic_goals", "chat_session_id", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(cur, "agentic_goals", "root_goal_id", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(cur, "agentic_goals", "parent_goal_id", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(cur, "agentic_goals", "version", "INTEGER NOT NULL DEFAULT 1")
+            cur.execute("UPDATE agentic_goals SET root_goal_id = id WHERE root_goal_id = ''")
+
+            # Typed, read-only external data connectors. Connector configuration
+            # is project scoped and deliberately stores no credentials. Raw feed
+            # entries are normalised into auditable signals before agents see them.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS connector_instances (
+                    id TEXT PRIMARY KEY,
+                    connector_type TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    username TEXT NOT NULL DEFAULT 'alex',
+                    project_id TEXT NOT NULL DEFAULT '',
+                    config_json TEXT NOT NULL DEFAULT '{}',
+                    interest_query TEXT NOT NULL DEFAULT '',
+                    poll_minutes INTEGER NOT NULL DEFAULT 60,
+                    minimum_relevance INTEGER NOT NULL DEFAULT 40,
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    status TEXT NOT NULL DEFAULT 'idle',
+                    last_sync_at TEXT,
+                    next_sync_at TEXT,
+                    last_error TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS connector_sync_runs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    instance_id TEXT NOT NULL REFERENCES connector_instances(id) ON DELETE CASCADE,
+                    status TEXT NOT NULL DEFAULT 'running',
+                    items_seen INTEGER NOT NULL DEFAULT 0,
+                    items_created INTEGER NOT NULL DEFAULT 0,
+                    error_message TEXT NOT NULL DEFAULT '',
+                    started_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    completed_at TEXT
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS external_signals (
+                    id TEXT PRIMARY KEY,
+                    instance_id TEXT NOT NULL REFERENCES connector_instances(id) ON DELETE CASCADE,
+                    project_id TEXT NOT NULL DEFAULT '',
+                    source_name TEXT NOT NULL DEFAULT '',
+                    source_url TEXT NOT NULL DEFAULT '',
+                    external_id TEXT NOT NULL DEFAULT '',
+                    title TEXT NOT NULL DEFAULT '',
+                    summary TEXT NOT NULL DEFAULT '',
+                    content TEXT NOT NULL DEFAULT '',
+                    published_at TEXT,
+                    retrieved_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    content_hash TEXT NOT NULL,
+                    relevance_score INTEGER NOT NULL DEFAULT 0,
+                    relevance_reason TEXT NOT NULL DEFAULT '',
+                    metadata_json TEXT NOT NULL DEFAULT '{}',
+                    promoted_goal_id TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    UNIQUE(instance_id, external_id)
+                )
+            """)
+
             # Vector embeddings virtual table (for sqlite-vec 1536-dim embeddings)
             if HAS_SQLITE_VEC:
                 cur.execute("""
@@ -365,6 +564,74 @@ class LocalDBManager:
             cur.execute("CREATE INDEX IF NOT EXISTS idx_autonomous_task_steps_task ON autonomous_task_steps(task_id, step_index)")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_research_artifacts_task ON research_artifacts(task_id)")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_autonomous_task_controls_task ON autonomous_task_controls(task_id, id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_agentic_goals_status ON agentic_goals(status, updated_at)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_agentic_goals_user_project ON agentic_goals(username, project_id, updated_at DESC)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_agentic_tasks_goal_status ON agentic_tasks(goal_id, status, sequence_no)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_agentic_goals_work_schedule ON agentic_goals(work_type, status, schedule_enabled, scheduled_at)")
+            cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_agentic_goals_source_ref ON agentic_goals(source_type, source_ref) WHERE source_ref != ''")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_connector_instances_due ON connector_instances(enabled, next_sync_at)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_external_signals_project_score ON external_signals(project_id, relevance_score, published_at)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_agentic_events_goal ON agentic_events(goal_id, id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_agentic_artifacts_goal ON agentic_artifacts(goal_id, id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_agentic_proposals_goal_status ON agentic_action_proposals(goal_id, status)")
+
+            # Email records mirror only the Manager-owned AgentMail inbox. API
+            # credentials stay in environment variables, never in SQLite.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS email_messages (
+                    message_id TEXT PRIMARY KEY,
+                    thread_id TEXT NOT NULL DEFAULT '',
+                    inbox_id TEXT NOT NULL DEFAULT '',
+                    username TEXT NOT NULL DEFAULT 'alex',
+                    sender TEXT NOT NULL DEFAULT '',
+                    recipients_json TEXT NOT NULL DEFAULT '[]',
+                    subject TEXT NOT NULL DEFAULT '',
+                    text_body TEXT NOT NULL DEFAULT '',
+                    received_at TEXT NOT NULL DEFAULT '',
+                    direction TEXT NOT NULL DEFAULT 'inbound',
+                    raw_json TEXT NOT NULL DEFAULT '{}',
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS email_drafts (
+                    draft_id TEXT PRIMARY KEY,
+                    inbox_id TEXT NOT NULL DEFAULT '',
+                    username TEXT NOT NULL DEFAULT 'alex',
+                    message_id TEXT NOT NULL DEFAULT '',
+                    recipients_json TEXT NOT NULL DEFAULT '[]',
+                    subject TEXT NOT NULL DEFAULT '',
+                    text_body TEXT NOT NULL DEFAULT '',
+                    status TEXT NOT NULL DEFAULT 'pending_approval',
+                    approved_by TEXT NOT NULL DEFAULT '',
+                    approved_at TEXT,
+                    sent_at TEXT,
+                    remote_json TEXT NOT NULL DEFAULT '{}',
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS email_audit (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL DEFAULT 'alex',
+                    action TEXT NOT NULL,
+                    message_id TEXT NOT NULL DEFAULT '',
+                    draft_id TEXT NOT NULL DEFAULT '',
+                    detail TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_email_messages_user_received ON email_messages(username, received_at DESC)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_email_drafts_user_status ON email_drafts(username, status, created_at DESC)")
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS email_sync_preferences (
+                    username TEXT PRIMARY KEY,
+                    poll_minutes INTEGER NOT NULL DEFAULT 15,
+                    last_synced_at TEXT,
+                    last_error TEXT NOT NULL DEFAULT '',
+                    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+                )
+            """)
 
             conn.commit()
 
@@ -394,7 +661,7 @@ class LocalDBManager:
                 "agent_id": "ManagerAgent",
                 "agent_name": "Manager Agent",
                 "role_label": "Executive Assistant & Chat Hub",
-                "soul_md": "You are the Executive General Manager and Lead AI Personal Assistant for Forest Joensuu and Business Joensuu.\n\nYOUR PERSONA & TONE:\n- You operate with the poise, intelligence, courtesy, and executive presence of an elite General Manager at a top-tier luxury establishment.\n- Communication Tone: Formal, polite, highly structured, professional, and authoritative yet warm and accommodating.\n- Mindset: You are an expert orchestrator and coordinator. You take full ownership of assisting the user with executive decisions, strategic plans, writing, and operational guidance.",
+                "soul_md": "You are the Executive General Manager and Lead AI Personal Assistant for The Company.\n\nYOUR PERSONA & TONE:\n- You operate with the poise, intelligence, courtesy, and executive presence of an elite General Manager at a top-tier luxury establishment.\n- Communication Tone: Formal, polite, highly structured, professional, and authoritative yet warm and accommodating.\n- Mindset: You are an expert orchestrator and coordinator. You take full ownership of assisting the user with executive decisions, strategic plans, writing, and operational guidance.",
                 "rules_md": "DELEGATION & SUB-AGENT TASKFORCE PROTOCOL:\nYou manage a specialized board of domain-expert sub-agents:\n1. Financial Advisor Agent: CFO-level corporate finance, capital burn rate, runway modeling, ROI risks, and grant structuring.\n2. Meeting Secretary Agent: Executive meeting minutes, action item tracking, and vector search.\n3. Foresight Radar Agent: Chief Intelligence Officer scanning global bioeconomy trends, news, and live web market radar.\n4. Impact Evaluator Agent: Quantitative project proposal scoring, job creation ratio, and net-zero roadmap feasibility.\n5. Susicorn Accelerator Agent: Venture capital dealflow matching, green startup acceleration ('Susicorns'), and private-sector job growth.\n\nPROTOCOL:\nWhen specialized execution is requested, allocate the best expert sub-agent, receive their report, synthesize findings, and present an authoritative executive summary.",
                 "color": "#10b981"
             },
@@ -402,7 +669,7 @@ class LocalDBManager:
                 "agent_id": "FinancialAdvisorAgent",
                 "agent_name": "Financial Advisor",
                 "role_label": "Financial Strategy & Capital Allocation",
-                "soul_md": "You are the Chief Financial Officer (CFO) & Senior Investment Strategist sub-agent for Forest Joensuu and Business Joensuu.\n\nYOUR PERSONA & TONE:\n- Tone: Analytical, precise, formal, empirical, and financially rigorous.\n- Perspective: You view every initiative through the lens of capital efficiency, cash burn rate, runway extension, ROI risk modeling, and regional economic leverage.",
+                "soul_md": "You are the Chief Financial Officer (CFO) & Senior Investment Strategist sub-agent for The Company.\n\nYOUR PERSONA & TONE:\n- Tone: Analytical, precise, formal, empirical, and financially rigorous.\n- Perspective: You view every initiative through the lens of capital efficiency, cash burn rate, runway extension, ROI risk modeling, and regional economic leverage.",
                 "rules_md": "EXECUTION DIRECTIVE:\nWhen tasked with financial advisories, conduct a thorough quantitative assessment:\n1. Executive Financial Health Assessment (Cash flow, capital burn, runway)\n2. Investment & Regional Grant Structuring (Joensuu bio-fund, EU innovation grants, VC co-investment)\n3. ROI & Financial Risk Modeling\n4. Recommended Immediate Financial Actions (Next 30/90 Days)",
                 "color": "#2196F3"
             },
@@ -410,7 +677,7 @@ class LocalDBManager:
                 "agent_id": "MeetingNotesAgent",
                 "agent_name": "Meeting Secretary",
                 "role_label": "RAG Ingestion & Meeting Analytics",
-                "soul_md": "You are the Chief Secretary & RAG Ingestion Officer sub-agent for Forest Joensuu and Business Joensuu.\n\nYOUR PERSONA & TONE:\n- Tone: Concise, highly organized, detail-oriented, and structured.\n- Perspective: You excel at extracting action items, key decisions, owner assignments, and deadlines from raw meeting notes and board transcripts.",
+                "soul_md": "You are the Chief Secretary & RAG Ingestion Officer sub-agent for The Company.\n\nYOUR PERSONA & TONE:\n- Tone: Concise, highly organized, detail-oriented, and structured.\n- Perspective: You excel at extracting action items, key decisions, owner assignments, and deadlines from raw meeting notes and board transcripts.",
                 "rules_md": "EXECUTION DIRECTIVE:\nWhen processing meeting notes or transcripts:\n1. Executive Summary (Key themes & outcomes)\n2. Decided Action Items (Task, Assigned Lead, Deadline)\n3. Strategic Risks & Follow-up Agenda",
                 "color": "#9C27B0"
             },
@@ -418,7 +685,7 @@ class LocalDBManager:
                 "agent_id": "ForesightAgent",
                 "agent_name": "Foresight Radar",
                 "role_label": "Global Market Radar & Bioeconomy Intelligence",
-                "soul_md": "You are the Chief Intelligence Officer & Market Foresight Radar sub-agent for Forest Joensuu and Business Joensuu.\n\nYOUR PERSONA & TONE:\n- Tone: Forward-looking, strategic, radar-focused, and competitive intelligence-driven.\n- Perspective: You track macro trends, bioeconomy technologies, carbon policy regulations, and competitive movements in Joensuu and North Karelia.",
+                "soul_md": "You are the Chief Intelligence Officer & Market Foresight Radar sub-agent for The Company.\n\nYOUR PERSONA & TONE:\n- Tone: Forward-looking, strategic, radar-focused, and competitive intelligence-driven.\n- Perspective: You track macro trends, bioeconomy technologies, carbon policy regulations, and competitive movements in Joensuu and North Karelia.",
                 "rules_md": "EXECUTION DIRECTIVE:\nWhen conducting market foresight or intelligence scans:\n1. Macro Market Trend Radar\n2. Regulatory & Bioeconomy Shifts\n3. Competitive Threats & Strategic Opportunities",
                 "color": "#FF9800"
             },
@@ -426,7 +693,7 @@ class LocalDBManager:
                 "agent_id": "IdeaScorerAgent",
                 "agent_name": "Impact Evaluator",
                 "role_label": "Quantitative Project Scoring & Job Creation Impact",
-                "soul_md": "You are the Chief Investment Officer & Impact Evaluator sub-agent for Business Joensuu.\n\nYOUR PERSONA & TONE:\n- Tone: Quantitative, objective, scorecard-based, and evidence-driven.\n- Perspective: You score project proposals, startup pitches, and grant applications on regional job creation impact, Susicorn potential, and technical feasibility.",
+                "soul_md": "You are the Chief Investment Officer & Impact Evaluator sub-agent for The Company.\n\nYOUR PERSONA & TONE:\n- Tone: Quantitative, objective, scorecard-based, and evidence-driven.\n- Perspective: You score project proposals, startup pitches, and grant applications on regional job creation impact, Susicorn potential, and technical feasibility.",
                 "rules_md": "EXECUTION DIRECTIVE:\nScore proposals on a 1-10 scale across:\n1. Strategic Fit with Joensuu Strategy 2026\n2. Regional Job Creation & Economic Output\n3. Net-Zero & Sustainability Impact\n4. Execution Risk & Feasibility",
                 "color": "#E91E63"
             },
@@ -434,7 +701,7 @@ class LocalDBManager:
                 "agent_id": "SusicornAgent",
                 "agent_name": "Susicorn Accelerator",
                 "role_label": "Venture Acceleration & Startup Job Growth",
-                "soul_md": "You are the Head of Susicorn Acceleration & VC Scaling sub-agent for Business Joensuu.\n\nYOUR PERSONA & TONE:\n- Tone: High-energy, venture capital-minded, scaling-focused, and proactive.\n- Perspective: You focus on accelerating sustainable tech startups ('Susicorns') in Joensuu, scaling private sector jobs, and matching startups with Nordic VC funds.",
+                "soul_md": "You are the Head of Susicorn Acceleration & VC Scaling sub-agent for The Company.\n\nYOUR PERSONA & TONE:\n- Tone: High-energy, venture capital-minded, scaling-focused, and proactive.\n- Perspective: You focus on accelerating sustainable tech startups ('Susicorns') in Joensuu, scaling private sector jobs, and matching startups with Nordic VC funds.",
                 "rules_md": "EXECUTION DIRECTIVE:\nWhen evaluating or scaling Susicorn startups:\n1. Startup Readiness Score & Growth Trajectory\n2. VC Capital Match & Funding Pathway\n3. Joensuu Job Creation Impact Model\n4. 90-Day Acceleration Roadmap",
                 "color": "#00BCD4"
             }
@@ -553,23 +820,25 @@ class LocalDBManager:
         role: str = "",
         profile_md: str = "",
         tone_style: str = "formal_executive",
-        custom_instructions: str = ""
+        custom_instructions: str = "",
+        language: str = "en"
     ) -> Dict[str, Any]:
         """Upserts a user profile into the local SQLite user_profiles table."""
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
         try:
             conn = self._get_connection()
             conn.execute("""
-                INSERT INTO user_profiles (user_id, display_name, role, profile_md, tone_style, custom_instructions, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO user_profiles (user_id, display_name, role, profile_md, tone_style, custom_instructions, language, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(user_id) DO UPDATE SET
                     display_name = COALESCE(NULLIF(excluded.display_name, ''), user_profiles.display_name),
                     role = COALESCE(NULLIF(excluded.role, ''), user_profiles.role),
                     profile_md = CASE WHEN excluded.profile_md != '' THEN excluded.profile_md ELSE user_profiles.profile_md END,
                     tone_style = excluded.tone_style,
                     custom_instructions = excluded.custom_instructions,
+                    language = excluded.language,
                     updated_at = excluded.updated_at
-            """, (user_id, display_name, role, profile_md, tone_style, custom_instructions, timestamp))
+            """, (user_id, display_name, role, profile_md, tone_style, custom_instructions, language, timestamp))
             conn.commit()
             conn.close()
             return {"status": "success", "updated_at": timestamp}
@@ -943,7 +1212,7 @@ class LocalDBManager:
     # =========================================================================
 
     # =========================================================================
-    # BUSINESS CONTEXT (Forest Joensuu -> partner company -> project)
+    # BUSINESS CONTEXT (The Company -> partner company -> project)
     # =========================================================================
 
     def get_organization_context(self) -> Dict[str, Any]:
@@ -953,10 +1222,10 @@ class LocalDBManager:
             row = conn.execute(
                 "SELECT * FROM organization_context WHERE id = 'forest_joensuu'"
             ).fetchone()
-            return dict(row) if row else {"id": "forest_joensuu", "name": "Forest Joensuu"}
+            return dict(row) if row else {"id": "forest_joensuu", "name": "The Company"}
         except Exception as exc:
-            logger.error("Error loading Forest Joensuu context: %s", exc)
-            return {"id": "forest_joensuu", "name": "Forest Joensuu"}
+            logger.error("Error loading organization context: %s", exc)
+            return {"id": "forest_joensuu", "name": "The Company"}
         finally:
             if conn:
                 conn.close()
@@ -986,7 +1255,7 @@ class LocalDBManager:
                     updated_at = datetime('now')
                 """,
                 (
-                    (name or "Forest Joensuu").strip()[:120],
+                    (name or "The Company").strip()[:120],
                     (mission_md or "").strip()[:2_000],
                     (priorities_md or "").strip()[:2_000],
                     (constraints_md or "").strip()[:2_000],
@@ -996,7 +1265,7 @@ class LocalDBManager:
             conn.commit()
             return self.get_organization_context()
         except Exception as exc:
-            logger.error("Error saving Forest Joensuu context: %s", exc)
+            logger.error("Error saving organization context: %s", exc)
             return {}
         finally:
             if conn:
@@ -1119,7 +1388,7 @@ class LocalDBManager:
             ("Decision principles", organization.get("decision_principles_md", "")),
         ]
         organization_lines = [
-            f"[FOREST JOENSUU DNA — {organization.get('name') or 'Forest Joensuu'}]"
+            f"[ORGANIZATION DNA — {organization.get('name') or 'The Company'}]"
         ]
         organization_lines.extend(
             f"{label}: {str(value).strip()}" for label, value in organization_fields if str(value).strip()
@@ -1164,7 +1433,7 @@ class LocalDBManager:
             blocks.append(
                 "[MULTI-PROJECT RULE]\n"
                 "Keep conclusions, evidence, targets and constraints labelled by company and project. "
-                "Do not assume one project's information applies to another. Highlight shared opportunities, conflicts and trade-offs against Forest Joensuu priorities."
+                "Do not assume one project's information applies to another. Highlight shared opportunities, conflicts and trade-offs against organizational priorities."
             )
         return "\n\n".join(blocks)[:12_000]
 
@@ -1413,26 +1682,27 @@ class LocalDBManager:
         conn = None
         try:
             conn = self._get_connection()
+            exists = conn.execute("SELECT 1 FROM documents WHERE file_name = ?", (file_name,)).fetchone()
+            if not exists:
+                return False
             # Get chunk IDs to delete from vec_document_chunks
             chunk_rows = conn.execute("SELECT id FROM document_chunks WHERE doc_name = ?", (file_name,)).fetchall()
             chunk_ids = [r[0] for r in chunk_rows]
-            
+
             # Delete from vec_document_chunks
             if HAS_SQLITE_VEC and chunk_ids:
                 placeholders = ",".join(["?"] * len(chunk_ids))
                 conn.execute(f"DELETE FROM vec_document_chunks WHERE chunk_id IN ({placeholders})", chunk_ids)
-            
+
             # Delete from document_chunks
             conn.execute("DELETE FROM document_chunks WHERE doc_name = ?", (file_name,))
             # Delete from notebook_documents
             conn.execute("DELETE FROM notebook_documents WHERE doc_name = ?", (file_name,))
             # Delete from documents
-            conn.execute("DELETE FROM documents WHERE file_name = ?", (file_name,))
-            
+            deleted = conn.execute("DELETE FROM documents WHERE file_name = ?", (file_name,)).rowcount
+
             conn.commit()
-            self._migrate_foreign_key_constraints(conn)
-            conn.commit()
-            return True
+            return deleted > 0
         except Exception as e:
             logger.error(f"Error deleting document '{file_name}': {e}")
             if conn:
@@ -1549,6 +1819,108 @@ class LocalDBManager:
             if conn:
                 conn.close()
 
+    def get_document_details(self, file_name: str) -> Optional[Dict[str, Any]]:
+        """Return persisted metadata together with the actual stored chunks."""
+        conn = None
+        try:
+            conn = self._get_connection()
+            document = conn.execute("SELECT * FROM documents WHERE file_name = ?", (file_name,)).fetchone()
+            if not document:
+                return None
+            chunks = conn.execute(
+                "SELECT id, chunk_index, text_content, created_at FROM document_chunks WHERE doc_name = ? ORDER BY chunk_index",
+                (file_name,),
+            ).fetchall()
+            result = dict(document)
+            result["chunks"] = [dict(chunk) for chunk in chunks]
+            result["chunks_indexed"] = len(chunks)
+            result["extracted_text"] = "\n".join(str(chunk["text_content"]) for chunk in chunks)
+            return result
+        except Exception as exc:
+            logger.error("Error fetching document details for '%s': %s", file_name, exc)
+            return None
+        finally:
+            if conn:
+                conn.close()
+
+    def clear_document_chunks(self, file_name: str) -> bool:
+        """Remove old chunks before an idempotent re-ingestion while preserving notebook membership."""
+        conn = None
+        try:
+            conn = self._get_connection()
+            chunk_rows = conn.execute("SELECT id FROM document_chunks WHERE doc_name = ?", (file_name,)).fetchall()
+            chunk_ids = [int(row[0]) for row in chunk_rows]
+            if HAS_SQLITE_VEC and chunk_ids:
+                placeholders = ",".join("?" for _ in chunk_ids)
+                conn.execute(f"DELETE FROM vec_document_chunks WHERE chunk_id IN ({placeholders})", chunk_ids)
+            conn.execute("DELETE FROM document_chunks WHERE doc_name = ?", (file_name,))
+            conn.commit()
+            return True
+        except Exception as exc:
+            logger.error("Error clearing chunks for '%s': %s", file_name, exc)
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                conn.close()
+
+    def replace_document_index(
+        self,
+        file_name: str,
+        extension: str,
+        size_bytes: int,
+        text_length: int,
+        storage_path: str,
+        ai_summary: str,
+        chunks: List[Dict[str, Any]],
+    ) -> bool:
+        """Atomically replace a document's metadata, lexical chunks, and vectors."""
+        conn = None
+        try:
+            conn = self._get_connection()
+            with conn:
+                conn.execute(
+                    """
+                    INSERT INTO documents (file_name, extension, size_bytes, text_length, chunks_indexed, storage_path, ai_summary)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(file_name) DO UPDATE SET
+                        extension = excluded.extension,
+                        size_bytes = excluded.size_bytes,
+                        text_length = excluded.text_length,
+                        chunks_indexed = excluded.chunks_indexed,
+                        storage_path = excluded.storage_path,
+                        ai_summary = excluded.ai_summary
+                    """,
+                    (file_name, extension, size_bytes, text_length, len(chunks), storage_path, ai_summary),
+                )
+                old_rows = conn.execute("SELECT id FROM document_chunks WHERE doc_name = ?", (file_name,)).fetchall()
+                old_ids = [int(row[0]) for row in old_rows]
+                if HAS_SQLITE_VEC and old_ids:
+                    placeholders = ",".join("?" for _ in old_ids)
+                    conn.execute(f"DELETE FROM vec_document_chunks WHERE chunk_id IN ({placeholders})", old_ids)
+                conn.execute("DELETE FROM document_chunks WHERE doc_name = ?", (file_name,))
+                for index, chunk in enumerate(chunks):
+                    cursor = conn.execute(
+                        "INSERT INTO document_chunks (doc_name, chunk_index, text_content) VALUES (?, ?, ?)",
+                        (file_name, index, str(chunk.get("text") or "")),
+                    )
+                    embedding = chunk.get("embedding")
+                    if embedding is not None and HAS_SQLITE_VEC:
+                        conn.execute(
+                            "INSERT INTO vec_document_chunks (chunk_id, embedding) VALUES (?, ?)",
+                            (int(cursor.lastrowid), _serialize_float32(embedding)),
+                        )
+            return True
+        except Exception as exc:
+            logger.error("Error replacing document index for '%s': %s", file_name, exc)
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                conn.close()
+
     # =========================================================================
     # DOCUMENT CHUNKS & VECTOR EMBEDDINGS
     # =========================================================================
@@ -1598,7 +1970,7 @@ class LocalDBManager:
         try:
             conn = self._get_connection()
             blob = _serialize_float32(query_embedding)
-            
+
             query = """
                 SELECT c.text_content, c.doc_name, c.chunk_index, v.distance
                 FROM vec_document_chunks v
@@ -1619,7 +1991,7 @@ class LocalDBManager:
             query += " WHERE " + " AND ".join(conditions)
             query += " ORDER BY v.distance LIMIT ?"
             params.append(max(1, min(int(top_k), 10)))
-            
+
             rows = conn.execute(query, tuple(params)).fetchall()
             return [dict(r) for r in rows]
         except Exception as e:
@@ -1806,12 +2178,12 @@ class LocalDBManager:
                     continue
                 set_clauses.append(f"{self._quote_identifier(k)} = ?")
                 values.append(v)
-            
+
             if not set_clauses: return True
-            
+
             query = f"UPDATE {self._quote_identifier(table_name)} SET {', '.join(set_clauses)} WHERE {self._quote_identifier(pk_col)} = ?"
             values.append(pk_val)
-            
+
             cur.execute(query, tuple(values))
             conn.commit()
             success = cur.rowcount > 0
@@ -2204,6 +2576,41 @@ class LocalDBManager:
             if conn:
                 conn.close()
 
+    def claim_autonomous_task(self, task_id: str) -> bool:
+        """Atomically claim one queued deep-research task."""
+        conn = None
+        try:
+            conn = self._get_connection()
+            result = conn.execute(
+                """UPDATE autonomous_tasks SET status = 'running', updated_at = datetime('now')
+                   WHERE id = ? AND status = 'queued' AND cancel_requested = 0""",
+                (task_id,),
+            )
+            conn.commit()
+            return result.rowcount > 0
+        finally:
+            if conn:
+                conn.close()
+
+    def recover_interrupted_autonomous_tasks(self) -> List[str]:
+        """Requeue persisted deep-research tasks after a kernel restart."""
+        conn = None
+        try:
+            conn = self._get_connection()
+            conn.execute(
+                """UPDATE autonomous_tasks SET status = 'queued',
+                   error_message = '', last_action = 'Recovered after kernel restart', updated_at = datetime('now')
+                   WHERE status = 'running' AND cancel_requested = 0"""
+            )
+            rows = conn.execute(
+                "SELECT id FROM autonomous_tasks WHERE status = 'queued' AND cancel_requested = 0 ORDER BY created_at"
+            ).fetchall()
+            conn.commit()
+            return [str(row["id"]) for row in rows]
+        finally:
+            if conn:
+                conn.close()
+
     def list_autonomous_tasks(self, username: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
         """Return compact, newest-first agent activity records for the audit-log view."""
         conn = None
@@ -2505,4 +2912,3 @@ class LocalDBManager:
 
 # Singleton instance
 db_manager = LocalDBManager()
-

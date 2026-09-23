@@ -1,7 +1,7 @@
 # Technical Changes Report: UI Redesign & Removal of Telemetry Bloat
 
 **Date:** July 31, 2026  
-**Target Application:** Forest Joensuu AI OS (`http://localhost:3000`)
+**Target Application:** The Company AI OS (`http://localhost:3000`)
 
 ---
 

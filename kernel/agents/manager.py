@@ -23,7 +23,7 @@ from kernel.tools.web_scraper import web_scraper
 
 logger = logging.getLogger("manager_agent")
 
-DEFAULT_MANAGER_SYSTEM_PROMPT = """You are the Lead Executive AI Assistant and Manager for Forest Joensuu AI OS.
+DEFAULT_MANAGER_SYSTEM_PROMPT = """You are the Lead Executive AI Assistant and Manager for AI OS.
 
 YOUR PERSONA & CAPABILITIES:
 - You are a highly intelligent, natural, versatile conversational AI partner (in the style of ChatGPT, Gemini, and Claude).
@@ -57,6 +57,7 @@ class ManagerAgent(BaseAgent):
         # add direction while the response is running; it is consumed only at
         # explicit boundaries in the tool loop below.
         self._active_chat_runs: Dict[str, Dict[str, Any]] = {}
+        self._background_tasks = set()
 
     def is_session_active(self, session_id: str) -> bool:
         session_id = (session_id or "").strip()
@@ -578,7 +579,7 @@ class ManagerAgent(BaseAgent):
                                 args.get("markdown_body", ""),
                             )
                             sub_agents_triggered.append("SkillBuilderEngine")
-                            task_executed_summary.append(f"âš¡ **Skill Updated**: `{skill_name}`")
+                            task_executed_summary.append(f"⚡ **Skill Updated**: `{skill_name}`")
                             tool_result = output
                         except Exception as e:
                             tool_result = f"Managed skill update failed: {e}"
@@ -812,7 +813,9 @@ class ManagerAgent(BaseAgent):
             )
 
             # Recap maintenance must never delay the visible answer.
-            asyncio.create_task(self._compact_chat_session(session_id, username, project_id))
+            compaction_task = asyncio.create_task(self._compact_chat_session(session_id, username, project_id))
+            self._background_tasks.add(compaction_task)
+            compaction_task.add_done_callback(self._background_tasks.discard)
 
         return {
             "response": final_content,

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from kernel.core.framework import BaseAgent, AgentTask, AgentResult, agent_registry
 from kernel.core.llm_provider import llm_provider
@@ -6,7 +7,7 @@ from kernel.tools.web_scraper import web_scraper
 
 logger = logging.getLogger("web_scraper_agent")
 
-DEFAULT_WEB_SCRAPER_PROMPT = """You are the Web Scraper Sub-Agent for Forest Joensuu AI OS.
+DEFAULT_WEB_SCRAPER_PROMPT = """You are the Web Scraper Sub-Agent for AI OS.
 
 YOUR RESPONSIBILITY:
 - You execute web scraping, page extraction, and stealth browsing tasks assigned ONLY by the Manager Agent.
@@ -40,9 +41,9 @@ class WebScraperAgent(BaseAgent):
 
         # Check if prompt contains a URL or query
         if "http://" in url_or_query or "https://" in url_or_query:
-            extracted_data = web_scraper.fetch_url_content(url_or_query)
+            extracted_data = await asyncio.to_thread(web_scraper.fetch_url_content, url_or_query)
         else:
-            extracted_data = web_scraper.live_search_web(url_or_query)
+            extracted_data = await asyncio.to_thread(web_scraper.live_search_web, url_or_query)
 
         await event_bus.notify_agent_update(agent_id, status="working", current_task=f"Synthesizing scraped content for {url_or_query[:30]}")
 
@@ -52,9 +53,10 @@ Extracted Web Content:
 {extracted_data}
 """
 
-        res = llm_provider.chat_completion(
+        res = await asyncio.to_thread(
+            llm_provider.chat_completion,
             messages=[
-                {"role": "system", "content": self.get_system_prompt()},
+                {"role": "system", "content": self.get_system_prompt(user_id=task.username, project_id=task.context.get("project_id", ""))},
                 {"role": "user", "content": prompt}
             ],
             provider=self.provider,
@@ -71,7 +73,11 @@ Extracted Web Content:
             agent_name=self.name,
             status="success",
             summary=output_summary,
-            data={"raw_extracted": extracted_data[:1000]}
+            data={
+                "raw_extracted": extracted_data[:1000],
+                "usage": res.get("usage", {}),
+                "cost_usd": llm_provider.estimate_cost(self.model, res.get("usage", {})),
+            }
         )
 
 web_scraper_agent = WebScraperAgent()

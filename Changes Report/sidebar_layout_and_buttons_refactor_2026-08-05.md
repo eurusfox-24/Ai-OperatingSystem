@@ -1,7 +1,7 @@
 # Technical Changes Report: PROJECTS & FILES Sidebar Layout Refactor
 
 **Date:** August 5, 2026  
-**Target Application:** Forest Joensuu AI OS (`ui/index.html`)
+**Target Application:** The Company AI OS (`ui/index.html`)
 
 ---
 
@@ -27,7 +27,7 @@
   ```html
   <div class="sidebar-actions-row" style="display: flex; gap: 8px; margin-bottom: 4px;">
     <button type="button" id="new-notebook-btn" class="action-sm-btn" style="flex: 1; text-align: center; white-space: nowrap;" title="Create project workspace">+ Project</button>
-    <button type="button" id="business-context-btn" class="action-sm-btn" style="flex: 1; text-align: center; white-space: nowrap;" title="Edit Forest Joensuu DNA and partner company context">DNA Context</button>
+    <button type="button" id="business-context-btn" class="action-sm-btn" style="flex: 1; text-align: center; white-space: nowrap;" title="Edit The Company DNA and partner company context">DNA Context</button>
   </div>
   ```
 

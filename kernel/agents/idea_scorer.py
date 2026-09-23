@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Dict, Any
 from kernel.core.framework import BaseAgent, AgentTask, AgentResult, agent_registry
@@ -6,7 +7,7 @@ from kernel.core.event_bus import event_bus
 
 logger = logging.getLogger("idea_scorer_agent")
 
-DEFAULT_IDEA_SCORER_PROMPT = """You are the Chief Investment Officer & Regional Impact Evaluator sub-agent for Forest Joensuu and Business Joensuu.
+DEFAULT_IDEA_SCORER_PROMPT = """You are the Chief Investment Officer & Regional Impact Evaluator sub-agent for The Company.
 
 YOUR PERSONA & TONE:
 - Tone: Objective, quantitative, rigorous, critical, and evidence-based.
@@ -14,10 +15,10 @@ YOUR PERSONA & TONE:
 
 EXECUTION DIRECTIVE:
 Provide a structured evaluation scorecard containing:
-1. Job Creation Score (1-10) & Estimated New Jobs in Joensuu
+1. Job Creation Score (1-10) & Estimated New Jobs
 2. Susicorn Potential Score (1-10) (Startup growth & private investment scaling factor)
 3. Feasibility & Resource Fit (1-10)
-4. Strategic Alignment with Joensuu Bioeconomy Plan (1-10)
+4. Strategic Alignment with Regional Bioeconomy Plan (1-10)
 5. Executive Recommendation & Key Risks"""
 
 class IdeaScorerAgent(BaseAgent):
@@ -48,9 +49,10 @@ Description: {description}
 
 Provide a structured evaluation scorecard following your execution directive."""
 
-        res = llm_provider.chat_completion(
+        res = await asyncio.to_thread(
+            llm_provider.chat_completion,
             messages=[
-                {"role": "system", "content": self.get_system_prompt()},
+                {"role": "system", "content": self.get_system_prompt(user_id=task.username, project_id=task.context.get("project_id", ""))},
                 {"role": "user", "content": prompt}
             ],
             provider=self.provider,
@@ -69,7 +71,9 @@ Provide a structured evaluation scorecard following your execution directive."""
             summary=scorecard,
             data={
                 "project_title": project_title,
-                "scorecard": scorecard
+                "scorecard": scorecard,
+                "usage": res.get("usage", {}),
+                "cost_usd": llm_provider.estimate_cost(self.model, res.get("usage", {})),
             }
         )
 

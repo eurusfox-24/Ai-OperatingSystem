@@ -22,7 +22,7 @@ from kernel.tools.web_scraper import web_scraper
 logger = logging.getLogger("autonomous_research")
 
 
-DEFAULT_AUTONOMOUS_RESEARCH_PROMPT = """You are the Deep Research Agent for Forest Joensuu AI OS.
+DEFAULT_AUTONOMOUS_RESEARCH_PROMPT = """You are the Deep Research Agent for AI OS.
 
 You work independently within a bounded research mission. You can retrieve selected
 internal notebook passages and public web pages, reconcile their evidence, and
@@ -168,7 +168,15 @@ class AutonomousResearchAgent(BaseAgent):
                 results.append(result)
         return "\n\n".join(results)[:self.MAX_NOTEBOOK_CONTEXT_CHARS]
 
-    async def _synthesize(self, query: str, notebook_context: str, web_context: str, business_context: str = "") -> str:
+    async def _synthesize(
+        self,
+        query: str,
+        notebook_context: str,
+        web_context: str,
+        business_context: str = "",
+        username: str = "alex",
+        project_id: str = "",
+    ) -> str:
         evidence_sections = []
         if notebook_context:
             evidence_sections.append("[INTERNAL NOTEBOOK EVIDENCE]\n" + notebook_context)
@@ -197,7 +205,7 @@ using [Source: filename] and each web claim using [Web: title]."""
         response = await asyncio.to_thread(
             llm_provider.chat_completion,
             messages=[
-                {"role": "system", "content": self.get_system_prompt()},
+                {"role": "system", "content": self.get_system_prompt(user_id=username, project_id=project_id)},
                 {"role": "user", "content": prompt},
             ],
             provider=self.provider,
@@ -215,6 +223,8 @@ using [Source: filename] and each web claim using [Web: title]."""
         web_context: str,
         pass_number: int,
         business_context: str = "",
+        username: str = "alex",
+        project_id: str = "",
     ) -> str:
         """Refine a draft only against evidence already gathered for this mission."""
         evidence_sections = []
@@ -241,7 +251,7 @@ Return a replacement report, not a critique. Keep only claims supported by the c
         response = await asyncio.to_thread(
             llm_provider.chat_completion,
             messages=[
-                {"role": "system", "content": self.get_system_prompt()},
+                {"role": "system", "content": self.get_system_prompt(user_id=username, project_id=project_id)},
                 {"role": "user", "content": prompt},
             ],
             provider=self.provider,
@@ -288,6 +298,9 @@ Return a replacement report, not a critique. Keep only claims supported by the c
         if not task:
             logger.error("Autonomous research task not found: %s", task_id)
             return
+        if not db_manager.claim_autonomous_task(task_id):
+            logger.info("Autonomous research task was already claimed or stopped: %s", task_id)
+            return
 
         query = str(task.get("query", "")).strip()[:self.MAX_QUERY_CHARS]
         notebook_ids = [str(item) for item in task.get("notebook_ids", []) if item]
@@ -295,7 +308,7 @@ Return a replacement report, not a critique. Keep only claims supported by the c
         business_context = str((task.get("context") or {}).get("business_context") or "").strip()
         agent_id = f"deep_research_{task_id[-6:]}"
         plan = self._plan(query, bool(notebook_ids and source_document_names))
-        db_manager.update_autonomous_task(task_id, status="running", plan=plan)
+        db_manager.update_autonomous_task(task_id, plan=plan)
 
         await event_bus.notify_agent_spawned(
             agent_id=agent_id,
@@ -359,7 +372,15 @@ Return a replacement report, not a critique. Keep only claims supported by the c
             await self._publish(task_id, "running", "Synthesizing a cited report from the collected evidence.")
             if await self._stop_if_requested(task_id, synth_step_id):
                 return
-            report = await self._synthesize(self._directed_query(query, task_id), notebook_context, web_context, business_context)
+            project_id = notebook_ids[0] if notebook_ids else ""
+            report = await self._synthesize(
+                self._directed_query(query, task_id),
+                notebook_context,
+                web_context,
+                business_context,
+                str(task.get("username") or "alex"),
+                project_id,
+            )
             if await self._stop_if_requested(task_id, synth_step_id):
                 return
             if not report:
@@ -397,6 +418,8 @@ Return a replacement report, not a critique. Keep only claims supported by the c
                     web_context,
                     pass_number,
                     business_context,
+                    str(task.get("username") or "alex"),
+                    project_id,
                 )
                 if await self._stop_if_requested(task_id, verification_step_id):
                     return

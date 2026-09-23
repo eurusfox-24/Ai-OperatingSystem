@@ -1,7 +1,7 @@
 # Technical Report: Pixel Office UI Visualizer Verification & Asset Alignment Fix
 
 **Date:** 2026-07-31  
-**Project:** Forest Joensuu AI OS (`ui` module)
+**Project:** The Company AI OS (`ui` module)
 
 ## Executive Summary
 A visual and build verification of the Pixel-Art Autonomous Agent Office Visualizer (`index.html` and `robot_canvas.ts`) was performed. The production build was tested using `vite build`, and pixel layout, character sprite configurations, and furniture alignments were audited against available static assets.

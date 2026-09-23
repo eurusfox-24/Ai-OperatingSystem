@@ -1,1109 +1,1162 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Forest Joensuu AI OS - Board Member Habitat</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%23ea580c%22/><text y=%22.75em%22 x=%22.25em%22 font-size=%2260%22 fill=%22white%22 font-weight=%22bold%22>AI</text></svg>">
-  <link rel="stylesheet" href="/src/style.css" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>The Company AI OS - Board Member Habitat</title>
+<link href="data:image/svg+xml,&lt;svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22&gt;&lt;rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%23ea580c%22/&gt;&lt;text y=%22.75em%22 x=%22.25em%22 font-size=%2260%22 fill=%22white%22 font-weight=%22bold%22&gt;AI&lt;/text&gt;&lt;/svg&gt;" rel="icon"/>
+<link href="/src/style.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=Outfit:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
 </head>
 <body>
-  <div id="app">
-    <!-- OS Header with View Switcher Navigation -->
-    <header class="os-header">
-      <div class="logo-zone">
-        <h1>Forest Joensuu AI OS</h1>
-        <div style="display: flex; gap: 8px;">
-          <button type="button" id="open-dna-context-btn" class="save-btn" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border-color: rgba(239, 68, 68, 0.3); padding: 4px 10px; font-size: 0.8rem; display: flex; align-items: center; gap: 4px;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg> DNA
+<div id="app">
+<!-- OS Header with View Switcher Navigation -->
+<header class="os-header">
+<div class="logo-zone">
+<h1 data-i18n="auto_forest_joensuu_ai_os_1">The Company AI OS</h1>
+<div style="display: flex; gap: 8px;">
+<button class="save-btn" id="open-dna-context-btn" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border-color: rgba(239, 68, 68, 0.3); padding: 4px 10px; font-size: 0.8rem; display: flex; align-items: center; gap: 4px;" type="button">
+<svg fill="none" height="14" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="14"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg> DNA
           </button>
-          <button type="button" id="open-companies-context-btn" class="save-btn" style="padding: 4px 10px; font-size: 0.8rem; display: flex; align-items: center; gap: 4px;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg> Companies
+<button class="save-btn" id="open-companies-context-btn" style="padding: 4px 10px; font-size: 0.8rem; display: flex; align-items: center; gap: 4px;" type="button">
+<svg fill="none" height="14" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="14"><rect height="14" rx="2" ry="2" width="20" x="2" y="7"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg> Companies
           </button>
-        </div>
-
-        <!-- View Switcher Navigation Tabs -->
-        <nav class="view-tabs">
-          <button type="button" id="tab-mvp-showcase" class="tab-btn">MVP Showcase</button>
-          <button type="button" id="tab-dashboard" class="tab-btn active">Executive Boardroom</button>
-          <button type="button" id="tab-kanban" class="tab-btn">Task Kanban</button>
-        </nav>
-      </div>
-
-      <!-- Top Actions (Theme Toggle & Profile) -->
-      <div class="top-actions" style="display: flex; align-items: center;">
-        <div class="dev-dropdown" style="margin-right: 16px;">
-          <button type="button" class="cancel-btn" style="padding: 4px 12px; font-size: 0.8rem; border-radius: 8px;">Developer ▾</button>
-          <div class="dev-dropdown-content" style="right: 0; left: auto; padding: 4px; border: 1px solid var(--panel-border);">
-            <button type="button" id="tab-customization" class="tab-btn">Agent Customization Studio</button>
-            <button type="button" id="tab-ingestion" class="tab-btn">Database</button>
-            <button type="button" id="tab-agent-logs" class="tab-btn">Agent Logs</button>
-          </div>
-        </div>
-        <button type="button" id="mvp-exit-showcase-btn" class="cancel-btn" style="padding: 4px 12px; font-size: 0.8rem; margin-right: 16px;">Sign Out</button>
-        <div class="theme-toggle-group" aria-label="Theme Mode Switcher">
-          <button type="button" class="theme-btn active" data-theme-set="light" title="Light Mode">Light</button>
-          <button type="button" class="theme-btn" data-theme-set="dark" title="Dark Mode">Dark</button>
-        </div>
-      </div>
-    </header>
-
-    <!-- Login Portal Overlay Modal -->
-    <div id="login-modal" class="modal-overlay">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h2>Forest Joensuu AI OS Login Portal</h2>
-          <p>Select a user profile or sign in to access your customized AI Board Member</p>
-        </div>
-
-        <div class="quick-profiles">
-          <label>Quick Profile Select:</label>
-          <div class="profile-chips">
-            <button type="button" class="chip-btn" data-user="alex" data-pass="joensuu123">
-              Alex Virtanen <span>Executive Board Lead</span>
-            </button>
-            <button type="button" class="chip-btn" data-user="analyst" data-pass="joensuu123">
-              Bioeconomy Analyst <span>Research Data Focus</span>
-            </button>
-            <button type="button" class="chip-btn" data-user="investor" data-pass="joensuu123">
-              VC Partner <span>Inward Investment Focus</span>
-            </button>
-          </div>
-        </div>
-
-        <form id="login-form" class="login-form">
-          <div class="input-group">
-            <label for="login-username">Username</label>
-            <input type="text" id="login-username" placeholder="e.g. alex" autocomplete="username" required />
-          </div>
-          <div class="input-group">
-            <label for="login-password">Password</label>
-            <input type="password" id="login-password" value="joensuu123" autocomplete="current-password" required />
-          </div>
-          <div id="login-error" class="login-error" style="display: none;"></div>
-          <button type="submit" class="login-submit-btn">Sign In</button>
-        </form>
-      </div>
-    </div>
-
-    <!-- DB Row Edit Modal -->
-    <div id="db-row-modal" class="modal-overlay" style="display: none;">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h2>Edit Record</h2>
-        </div>
-        <form id="db-row-form" class="custom-form">
-          <div id="db-row-fields-container"></div>
-          <div class="modal-actions" style="margin-top: 20px;">
-            <button type="button" id="close-db-row-btn" class="cancel-btn">Cancel</button>
-            <button type="submit" class="save-btn">Save Changes</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    
-    <!-- Forest Joensuu business context: shared DNA and reusable company layer. -->
-    <!-- DNA Context Modal -->
-    <div id="dna-context-modal" class="modal-overlay" style="display: none;">
-      <div class="modal-card business-context-card">
-        <div class="modal-header flex-between">
-          <div>
-            <h2>Forest Joensuu Shared DNA</h2>
-            <p>Used in every AI Board Member and Deep Research task.</p>
-          </div>
-          <button type="button" id="close-dna-context-btn" class="close-icon-btn">✕</button>
-        </div>
-        <form id="organization-context-form" class="custom-form">
-          <div class="input-group">
-            <label for="organization-context-name">Organization name</label>
-            <input id="organization-context-name" class="param-select full-width" maxlength="120" value="Forest Joensuu" />
-          </div>
-          <div class="input-group">
-            <label for="organization-context-mission">Mission / role</label>
-            <textarea id="organization-context-mission" class="habitat-prompt-textarea compact-textarea" rows="2" maxlength="2000" placeholder="What is Forest Joensuu trying to achieve across its portfolio?"></textarea>
-          </div>
-          <div class="input-group">
-            <label for="organization-context-priorities">Portfolio priorities and measures</label>
-            <textarea id="organization-context-priorities" class="habitat-prompt-textarea compact-textarea" rows="2" maxlength="2000" placeholder="e.g. Private-sector jobs, investment attracted, sustainable regional growth"></textarea>
-          </div>
-          <div class="input-group">
-            <label for="organization-context-constraints">Organization-wide constraints</label>
-            <textarea id="organization-context-constraints" class="habitat-prompt-textarea compact-textarea" rows="2" maxlength="2000" placeholder="e.g. Prioritize regional benefit; do not make unsupported claims"></textarea>
-          </div>
-          <div class="input-group">
-            <label for="organization-context-principles">Decision principles</label>
-            <textarea id="organization-context-principles" class="habitat-prompt-textarea compact-textarea" rows="2" maxlength="2000" placeholder="e.g. Evidence-led, commercially viable, collaborative"></textarea>
-          </div>
-          <div class="modal-actions">
-            <span id="organization-context-status" class="subtext" aria-live="polite"></span>
-            <button type="submit" class="save-btn">Save Forest Joensuu DNA</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Companies Context Modal -->
-    <div id="companies-context-modal" class="modal-overlay" style="display: none;">
-      <div class="modal-card business-context-card">
-        <div class="modal-header flex-between">
-          <div>
-            <h2>Partner Company Context</h2>
-            <p>One company can have many projects.</p>
-          </div>
-          <button type="button" id="close-companies-context-btn" class="close-icon-btn">✕</button>
-        </div>
-        <form id="partner-company-form" class="custom-form">
-          <div class="input-group">
-            <label for="partner-company-name">Company name</label>
-            <input id="partner-company-name" class="param-select full-width" maxlength="120" placeholder="e.g. North Karelia Biomaterials Oy" />
-          </div>
-          <div class="input-group">
-            <label for="partner-company-context">Business context</label>
-            <textarea id="partner-company-context" class="habitat-prompt-textarea compact-textarea" rows="2" maxlength="2000" placeholder="Industry, need, or collaboration context"></textarea>
-          </div>
-          <div class="input-group">
-            <label for="partner-company-priorities">Company priorities and measures</label>
-            <textarea id="partner-company-priorities" class="habitat-prompt-textarea compact-textarea" rows="2" maxlength="2000" placeholder="e.g. Export growth, pilot funding, production jobs"></textarea>
-          </div>
-          <div class="input-group">
-            <label for="partner-company-constraints">Company constraints</label>
-            <textarea id="partner-company-constraints" class="habitat-prompt-textarea compact-textarea" rows="2" maxlength="2000" placeholder="e.g. No new permanent hires during the pilot"></textarea>
-          </div>
-          <div class="modal-actions">
-            <span id="partner-company-status" class="subtext" aria-live="polite"></span>
-            <button type="submit" id="partner-company-save-btn" class="save-btn">Save partner company</button>
-          </div>
-          <div id="partner-company-list" class="partner-company-list" aria-live="polite"></div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Document Upload Modal -->
-    <div id="project-workspace-modal" class="modal-overlay" style="display: none;">
-      <div class="modal-card project-workspace-card">
-        <div class="modal-header flex-between">
-          <div>
-            <h2 id="project-workspace-title">Create project workspace</h2>
-            <p>A project owns its knowledge tree, scoped conversation, and delegated-agent context.</p>
-          </div>
-          <button type="button" id="close-project-workspace-btn" class="close-icon-btn">✕</button>
-        </div>
-        <form id="project-workspace-form" class="custom-form">
-          <div class="input-group">
-            <label for="project-workspace-name">Project name</label>
-            <input id="project-workspace-name" class="param-select full-width" maxlength="120" placeholder="e.g. Forest Joensuu AI Board Member MVP" required />
-          </div>
-          <div class="input-group">
-            <label for="project-company-select">Partner company</label>
-            <select id="project-company-select" class="param-select full-width">
-              <option value="">Forest Joensuu internal project</option>
-            </select>
-          </div>
-          <div class="input-group">
-            <label for="project-workspace-description">Purpose</label>
-            <textarea id="project-workspace-description" class="habitat-prompt-textarea compact-textarea" rows="3" maxlength="500" placeholder="What decision, programme, or initiative does this project support?"></textarea>
-          </div>
-          <div class="input-group">
-            <label for="project-workspace-brief">Project brief: goal, priorities, targets and constraints</label>
-            <textarea id="project-workspace-brief" class="habitat-prompt-textarea compact-textarea" rows="4" maxlength="2000" placeholder="e.g. Secure €500k pilot funding by Dec 2027. Prioritize regional jobs. No new permanent hires during the pilot."></textarea>
-          </div>
-          <div class="input-group">
-            <label for="project-workspace-boundary">Knowledge boundary</label>
-            <textarea id="project-workspace-boundary" class="habitat-prompt-textarea compact-textarea" rows="3" maxlength="2000" placeholder="e.g. Shared ecosystem knowledge and public research only. Human decision-makers retain final authority."></textarea>
-          </div>
-          <div class="project-boundary-notice">Documents stay inside this project’s knowledge tree. Only checked sources are passed to the AI Board Member and delegated agents.</div>
-          <div class="modal-actions">
-            <span id="project-workspace-status" class="subtext" aria-live="polite"></span>
-            <button type="submit" id="project-workspace-submit" class="save-btn">Create project</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Provider Registry Setup Modal. Draft entries are not enabled for live routing. -->
-    <div id="provider-setup-modal" class="modal-overlay" style="display: none;">
-      <div class="modal-card provider-setup-card">
-        <div class="modal-header flex-between">
-          <div>
-            <h2 id="provider-setup-title">Add Provider Draft</h2>
-            <p id="provider-setup-subtext">Define a future connection without changing the live Azure runtime.</p>
-          </div>
-          <button type="button" id="close-provider-setup-btn" class="close-icon-btn">✕</button>
-        </div>
-        <form id="provider-setup-form" class="custom-form">
-          <div class="panel-input-grid">
-            <div class="input-group">
-              <label for="provider-draft-name">Provider name</label>
-              <input id="provider-draft-name" class="param-select full-width" maxlength="80" placeholder="e.g. Internal inference gateway" required />
+</div>
+<!-- View Switcher Navigation Tabs -->
+<nav class="view-tabs">
+<button class="tab-btn" data-i18n="nav_mvp_showcase" id="tab-mvp-showcase" type="button">MVP Showcase</button>
+<button class="tab-btn active" data-i18n="nav_boardroom" id="tab-dashboard" type="button">Executive Boardroom</button>
+<button class="tab-btn" id="tab-agentic-goals" type="button">Agent Work</button>
+<button class="tab-btn" id="tab-monitoring" type="button">Sources &amp; Monitoring</button>
+<button aria-hidden="true" class="tab-btn" data-i18n="nav_kanban" id="tab-kanban" style="display:none;" type="button">Task Kanban</button>
+<button class="tab-btn" data-i18n="nav_habitat" id="tab-habitat" type="button">Pixel Office</button>
+</nav>
+</div>
+<!-- Top Actions (Theme Toggle, Language Toggle & Profile) -->
+<div class="top-actions" style="display: flex; align-items: center; gap: 12px;">
+<div class="dev-dropdown" style="margin-right: 4px;">
+<button class="cancel-btn" data-i18n="nav_dev" style="padding: 4px 12px; font-size: 0.8rem; border-radius: 8px;" type="button">Developer Ôû¥</button>
+<div class="dev-dropdown-content" style="right: 0; left: auto; padding: 4px; border: 1px solid var(--panel-border);">
+<button class="tab-btn" data-i18n="nav_customization" id="tab-customization" type="button">Agent Customization Studio</button>
+<button class="tab-btn" data-i18n="nav_database" id="tab-ingestion" type="button">Database</button>
+<button class="tab-btn" data-i18n="nav_agent_logs" id="tab-agent-logs" type="button">Agent Logs</button>
+</div>
+</div>
+<button class="user-badge" id="user-badge" style="display:none" title="Change password" type="button"><span id="user-name-display"></span></button>
+<span class="status-offline" id="connection-status">ÔùÅ Signed out</span>
+<button class="cancel-btn" data-i18n="nav_signout" id="mvp-exit-showcase-btn" style="padding: 4px 12px; font-size: 0.8rem;" type="button">Sign Out</button>
+<div aria-label="Language Switcher" class="lang-toggle-group theme-toggle-group">
+<button class="theme-btn active" id="lang-en" title="English" type="button">EN</button>
+<button class="theme-btn" id="lang-fi" title="Suomi" type="button">FI</button>
+</div>
+<div aria-label="Theme Mode Switcher" class="theme-toggle-group">
+<button class="theme-btn active" data-i18n="theme_light" data-theme-set="light" title="Light Mode" type="button">Light</button>
+<button class="theme-btn" data-i18n="theme_dark" data-theme-set="dark" title="Dark Mode" type="button">Dark</button>
+</div>
+</div>
+</header>
+<!-- Login Portal Overlay Modal -->
+<div class="modal-overlay" id="login-modal">
+<div class="modal-card">
+<div class="modal-header">
+<h2 data-i18n="login_title">The Company AI OS Login Portal</h2>
+<p data-i18n="login_desc">Select a user profile or sign in to access your customized AI Board Member</p>
+</div>
+<div class="quick-profiles">
+<label data-i18n="login_quick_profile">Quick Profile Select:</label>
+<div class="profile-chips">
+<button class="chip-btn" data-user="alex" type="button">
+              Alex Virtanen <span data-i18n="login_role_exec">Executive Board Lead</span>
+</button>
+<button class="chip-btn" data-user="analyst" type="button">
+              Bioeconomy Analyst <span data-i18n="login_role_research">Research Data Focus</span>
+</button>
+<button class="chip-btn" data-user="investor" type="button">
+              VC Partner <span data-i18n="login_role_invest">Inward Investment Focus</span>
+</button>
+</div>
+</div>
+<form class="login-form" id="login-form">
+<div class="input-group">
+<label data-i18n="login_username" for="login-username">Username</label>
+<input autocomplete="username" id="login-username" placeholder="e.g. alex" required="" type="text"/>
+</div>
+<div class="input-group">
+<label data-i18n="login_password" for="login-password">Password</label>
+<input autocomplete="current-password" id="login-password" required="" type="password"/>
+</div>
+<div class="login-error" id="login-error" style="display: none;"></div>
+<button class="login-submit-btn" data-i18n="login_signin_btn" type="submit">Sign In</button>
+</form>
+</div>
+</div>
+<div aria-modal="true" class="modal-overlay" id="password-change-modal" role="dialog" style="display: none;">
+<div class="modal-card">
+<div class="modal-header">
+<h2>Change password</h2>
+<p>Use at least 12 characters. Changing your password does not expose it to project files or logs.</p>
+</div>
+<form class="custom-form" id="password-change-form">
+<div class="input-group">
+<label for="current-password">Current password</label>
+<input autocomplete="current-password" id="current-password" required type="password"/>
+</div>
+<div class="input-group">
+<label for="new-password">New password</label>
+<input autocomplete="new-password" id="new-password" minlength="12" required type="password"/>
+</div>
+<div class="input-group">
+<label for="confirm-new-password">Confirm new password</label>
+<input autocomplete="new-password" id="confirm-new-password" minlength="12" required type="password"/>
+</div>
+<div aria-live="polite" class="subtext" id="password-change-status"></div>
+<div class="modal-actions">
+<button class="cancel-btn" id="close-password-change-btn" type="button">Cancel</button>
+<button class="save-btn" type="submit">Update password</button>
+</div>
+</form>
+</div>
+</div>
+<!-- DB Row Edit Modal -->
+<div class="modal-overlay" id="db-row-modal" style="display: none;">
+<div class="modal-card">
+<div class="modal-header">
+<h2 data-i18n="db_edit_record">Edit Record</h2>
+</div>
+<form class="custom-form" id="db-row-form">
+<div id="db-row-fields-container"></div>
+<div class="modal-actions" style="margin-top: 20px;">
+<button class="cancel-btn" data-i18n="btn_cancel" id="close-db-row-btn" type="button">Cancel</button>
+<button class="save-btn" data-i18n="btn_save_changes" type="submit">Save Changes</button>
+</div>
+</form>
+</div>
+</div>
+<!-- The Company business context: shared DNA and reusable company layer. -->
+<!-- DNA Context Modal -->
+<div class="modal-overlay" id="dna-context-modal" style="display: none;">
+<div class="modal-card business-context-card">
+<div class="modal-header flex-between">
+<div>
+<h2 data-i18n="dna_title">The Company Shared DNA</h2>
+<p data-i18n="dna_desc">Used in every AI Board Member and Deep Research task.</p>
+</div>
+<button class="close-icon-btn" id="close-dna-context-btn" type="button">Ô£ò</button>
+</div>
+<form class="custom-form" id="organization-context-form">
+<div class="input-group">
+<label data-i18n="dna_org_name" for="organization-context-name">Organization name</label>
+<input class="param-select full-width" id="organization-context-name" maxlength="120" value="The Company"/>
+</div>
+<div class="input-group">
+<label data-i18n="dna_mission" for="organization-context-mission">Mission / role</label>
+<textarea class="habitat-prompt-textarea compact-textarea" data-i18n="dna_mission_ph" id="organization-context-mission" maxlength="2000" placeholder="What is The Company trying to achieve across its portfolio?" rows="2"></textarea>
+</div>
+<div class="input-group">
+<label data-i18n="dna_priorities" for="organization-context-priorities">Portfolio priorities and measures</label>
+<textarea class="habitat-prompt-textarea compact-textarea" data-i18n="dna_priorities_ph" id="organization-context-priorities" maxlength="2000" placeholder="e.g. Private-sector jobs, investment attracted, sustainable regional growth" rows="2"></textarea>
+</div>
+<div class="input-group">
+<label data-i18n="dna_constraints" for="organization-context-constraints">Organization-wide constraints</label>
+<textarea class="habitat-prompt-textarea compact-textarea" data-i18n="dna_constraints_ph" id="organization-context-constraints" maxlength="2000" placeholder="e.g. Prioritize regional benefit; do not make unsupported claims" rows="2"></textarea>
+</div>
+<div class="input-group">
+<label data-i18n="dna_principles" for="organization-context-principles">Decision principles</label>
+<textarea class="habitat-prompt-textarea compact-textarea" data-i18n="dna_principles_ph" id="organization-context-principles" maxlength="2000" placeholder="e.g. Evidence-led, commercially viable, collaborative" rows="2"></textarea>
+</div>
+<div class="modal-actions">
+<span aria-live="polite" class="subtext" id="organization-context-status"></span>
+<button class="save-btn" data-i18n="dna_save_btn" type="submit">Save The Company DNA</button>
+</div>
+</form>
+</div>
+</div>
+<!-- Companies Context Modal -->
+<div class="modal-overlay" id="companies-context-modal" style="display: none;">
+<div class="modal-card business-context-card">
+<div class="modal-header flex-between">
+<div>
+<h2 data-i18n="company_title">Partner Company Context</h2>
+<p data-i18n="company_desc">One company can have many projects.</p>
+</div>
+<button class="close-icon-btn" id="close-companies-context-btn" type="button">Ô£ò</button>
+</div>
+<form class="custom-form" id="partner-company-form">
+<div class="input-group">
+<label data-i18n="company_name" for="partner-company-name">Company name</label>
+<input class="param-select full-width" id="partner-company-name" maxlength="120" placeholder="e.g. North Karelia Biomaterials Oy"/>
+</div>
+<div class="input-group">
+<label data-i18n="company_context" for="partner-company-context">Business context</label>
+<textarea class="habitat-prompt-textarea compact-textarea" id="partner-company-context" maxlength="2000" placeholder="Industry, need, or collaboration context" rows="2"></textarea>
+</div>
+<div class="input-group">
+<label data-i18n="company_priorities" for="partner-company-priorities">Company priorities and measures</label>
+<textarea class="habitat-prompt-textarea compact-textarea" id="partner-company-priorities" maxlength="2000" placeholder="e.g. Export growth, pilot funding, production jobs" rows="2"></textarea>
+</div>
+<div class="input-group">
+<label data-i18n="company_constraints" for="partner-company-constraints">Company constraints</label>
+<textarea class="habitat-prompt-textarea compact-textarea" id="partner-company-constraints" maxlength="2000" placeholder="e.g. No new permanent hires during the pilot" rows="2"></textarea>
+</div>
+<div class="modal-actions">
+<span aria-live="polite" class="subtext" id="partner-company-status"></span>
+<button class="save-btn" data-i18n="company_save_btn" id="partner-company-save-btn" type="submit">Save partner company</button>
+</div>
+<div aria-live="polite" class="partner-company-list" id="partner-company-list"></div>
+</form>
+</div>
+</div>
+<!-- Document Upload Modal -->
+<div class="modal-overlay" id="project-workspace-modal" style="display: none;">
+<div class="modal-card project-workspace-card">
+<div class="modal-header flex-between">
+<div>
+<h2 data-i18n="project_title_create" id="project-workspace-title">Create project workspace</h2>
+<p data-i18n="project_desc">A project owns its knowledge tree, scoped conversation, and delegated-agent context.</p>
+</div>
+<button class="close-icon-btn" id="close-project-workspace-btn" type="button">Ô£ò</button>
+</div>
+<form class="custom-form" id="project-workspace-form">
+<div class="input-group">
+<label data-i18n="project_name" for="project-workspace-name">Project name</label>
+<input class="param-select full-width" id="project-workspace-name" maxlength="120" placeholder="e.g. The Company AI Board Member MVP" required=""/>
+</div>
+<div class="input-group">
+<label data-i18n="project_company" for="project-company-select">Partner company</label>
+<select class="param-select full-width" id="project-company-select">
+<option value="">The Company internal project</option>
+</select>
+</div>
+<div class="input-group">
+<label data-i18n="project_purpose" for="project-workspace-description">Purpose</label>
+<textarea class="habitat-prompt-textarea compact-textarea" id="project-workspace-description" maxlength="500" placeholder="What decision, programme, or initiative does this project support?" rows="3"></textarea>
+</div>
+<div class="input-group">
+<label data-i18n="auto_project_brief_goal_p_6" for="project-workspace-brief">Project brief: goal, priorities, targets and constraints</label>
+<textarea class="habitat-prompt-textarea compact-textarea" id="project-workspace-brief" maxlength="2000" placeholder="e.g. Secure Ôé¼500k pilot funding by Dec 2027. Prioritize regional jobs. No new permanent hires during the pilot." rows="4"></textarea>
+</div>
+<div class="input-group">
+<label data-i18n="auto_knowledge_boundary_7" for="project-workspace-boundary">Knowledge boundary</label>
+<textarea class="habitat-prompt-textarea compact-textarea" id="project-workspace-boundary" maxlength="2000" placeholder="e.g. Shared ecosystem knowledge and public research only. Human decision-makers retain final authority." rows="3"></textarea>
+</div>
+<div class="project-boundary-notice" data-i18n="auto_documents_stay_insid_8">Documents stay inside this projectÔÇÖs knowledge tree. Only checked sources are passed to the AI Board Member and delegated agents.</div>
+<div class="modal-actions">
+<span aria-live="polite" class="subtext" id="project-workspace-status"></span>
+<button class="save-btn" data-i18n="auto_create_project_9" id="project-workspace-submit" type="submit">Create project</button>
+</div>
+</form>
+</div>
+</div>
+<!-- Provider Registry Setup Modal. Draft entries are not enabled for live routing. -->
+<div class="modal-overlay" id="provider-setup-modal" style="display: none;">
+<div class="modal-card provider-setup-card">
+<div class="modal-header flex-between">
+<div>
+<h2 data-i18n="auto_add_provider_draft_10" id="provider-setup-title">Add Provider Draft</h2>
+<p data-i18n="auto_define_a_future_conn_11" id="provider-setup-subtext">Define a future connection without changing the live Azure runtime.</p>
+</div>
+<button class="close-icon-btn" id="close-provider-setup-btn" type="button">Ô£ò</button>
+</div>
+<form class="custom-form" id="provider-setup-form">
+<div class="panel-input-grid">
+<div class="input-group">
+<label data-i18n="auto_provider_name_12" for="provider-draft-name">Provider name</label>
+<input class="param-select full-width" id="provider-draft-name" maxlength="80" placeholder="e.g. Internal inference gateway" required=""/>
+</div>
+<div class="input-group">
+<label data-i18n="auto_provider_id_13" for="provider-draft-id">Provider ID</label>
+<input class="param-select full-width" id="provider-draft-id" maxlength="48" placeholder="internal-gateway"/>
+</div>
+</div>
+<div class="panel-input-grid">
+<div class="input-group">
+<label data-i18n="auto_adapter_contract_14" for="provider-draft-adapter">Adapter contract</label>
+<select class="param-select full-width" id="provider-draft-adapter">
+<option value="openai_compatible">OpenAI-compatible chat</option>
+<option value="anthropic_messages">Anthropic Messages</option>
+<option value="gemini_generate_content">Gemini Generate Content</option>
+<option value="custom_adapter">Custom adapter (design draft)</option>
+</select>
+</div>
+<div class="input-group">
+<label data-i18n="auto_base_endpoint_option_15" for="provider-draft-endpoint">Base endpoint (optional)</label>
+<input class="param-select full-width" id="provider-draft-endpoint" maxlength="500" placeholder="https://api.example.com/v1"/>
+</div>
+</div>
+<div class="input-group">
+<label data-i18n="auto_candidate_models_16" for="provider-draft-models">Candidate models</label>
+<textarea class="habitat-prompt-textarea compact-textarea" id="provider-draft-models" placeholder="One model per line. These are catalog notes, not enabled deployments." rows="3"></textarea>
+</div>
+<div class="input-group">
+<label data-i18n="auto_setup_note_17" for="provider-draft-note">Setup note</label>
+<textarea class="habitat-prompt-textarea compact-textarea" id="provider-draft-note" maxlength="500" placeholder="What must be implemented or approved before this connection can go live?" rows="3"></textarea>
+</div>
+<div class="provider-draft-notice" data-i18n="auto_drafts_store_no_cred_18">Drafts store no credentials and cannot be selected by agents until a tested runtime adapter is enabled.</div>
+<div class="modal-actions">
+<span aria-live="polite" class="subtext" id="provider-setup-status"></span>
+<button class="save-btn" data-i18n="auto_save_provider_draft_19" type="submit">Save Provider Draft</button>
+</div>
+</form>
+</div>
+</div>
+<div class="modal-overlay" id="doc-upload-modal" style="display: none;">
+<div class="modal-card" style="width: 80%; max-width: 600px;">
+<div class="modal-header flex-between">
+<div>
+<h2 data-i18n="auto_upload_document_20">­ƒôä Upload Document</h2>
+<p data-i18n="auto_ingest_files_into_th_21">Ingest files into the vector knowledge store</p>
+</div>
+<button class="close-icon-btn" id="close-upload-modal-btn" type="button">Ô£ò</button>
+</div>
+<div class="upload-card expanded-dropzone" id="drop-zone-page">
+<div class="upload-icon-wrapper">
+<span class="upload-icon">Ôÿü´©Å</span>
+</div>
+<h3 data-i18n="auto_drag_drop_your_files_22">Drag &amp; drop your files here</h3>
+<p class="upload-subtext" data-i18n="auto_supports_pdf_word_ex_23">Supports PDF, Word, Excel, PowerPoint, CSV, Markdown &amp; TXT</p>
+<input accept=".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.txt,.md" hidden="" id="file-input-page" type="file"/>
+<button class="upload-btn" data-i18n="auto_choose_file_24" id="select-file-btn-page" type="button">Choose File</button>
+</div>
+<div class="upload-status" id="upload-status-page" style="display: none;"></div>
+<div class="ingestion-params" style="margin-top: 15px;">
+<div class="param-row">
+<label data-i18n="auto_chunk_size_25" for="chunk-size-select">Chunk Size:</label>
+<select class="param-select" id="chunk-size-select">
+<option value="500">500 Tokens (High Precision)</option>
+<option selected="" value="1200">1,200 Tokens (Balanced RAG)</option>
+<option value="2000">2,000 Tokens (High Context)</option>
+</select>
+</div>
+<div class="param-row">
+<label data-i18n="auto_embedding_model_26" for="embedding-select">Embedding Model:</label>
+<select class="param-select" id="embedding-select">
+<option value="azure">Azure OpenAI text-embedding-3-small (1536-dim)</option>
+<option value="bge">BGE-Large-EN (1024-dim)</option>
+</select>
+</div>
+<div class="param-row">
+<label data-i18n="auto_add_to_project_27" for="upload-notebook-select">Add to project:</label>
+<select class="param-select" id="upload-notebook-select"></select>
+</div>
+</div>
+</div>
+</div>
+<!-- PAGE VIEW 1: Executive Boardroom Studio (Google AI Studio Inspired Layout) -->
+<div class="page-view active-view" id="view-dashboard">
+<main class="main-grid full-height-grid">
+<!-- COLUMN 1: Left Navigation & Notebook Sidebar (~260px) -->
+<aside class="left-sidebar">
+<div class="sidebar-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-right: 8px; border-bottom: none;">
+<span class="section-label" data-i18n="auto_projects_28" style="text-transform: capitalize; font-weight: 600; font-size: 1rem; color: var(--accent-blue);">Projects</span>
+<div style="display: flex; gap: 4px;">
+<button class="icon-btn" id="new-notebook-btn" style="background: none; border: none; color: #888; cursor: pointer; padding: 4px; border-radius: 4px;" title="New Project" type="button">
+<svg fill="none" height="16" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="16"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" x2="12" y1="11" y2="17"></line><line x1="9" x2="15" y1="14" y2="14"></line></svg>
+</button>
+</div>
+</div>
+<p class="business-context-summary" data-i18n="auto_forest_joensuu_dna_i_29" id="business-context-summary">The Company DNA is loadingÔÇª</p>
+<!-- Notebook List -->
+<div class="notebook-list-section" id="notebook-list-container">
+<div class="notebook-item project-loading-state" data-i18n="auto_loading_project_work_30">Loading project workspacesÔÇª</div>
+</div>
+</aside>
+<!-- COLUMN 2: Center Workspace (Combined Chat & Briefing) -->
+<section class="center-chat-panel">
+<div class="chat-panel-header">
+<h3 data-i18n="auto_ai_board_member_31">AI Board Member</h3>
+<span class="subtext" data-i18n="auto_select_one_or_more_p_32">Select one or more project folders to set the internal knowledge scope</span>
+</div>
+<!-- Active Model & Context -->
+<div class="chat-context-banner">
+<span class="status-pill-purple" data-i18n="auto_azure_openai_33" id="active-model-engine-badge">Azure OpenAI</span>
+<span class="badge glow-green" data-i18n="auto_notebook_grounded_34" id="active-context-badge">Notebook Grounded</span>
+</div>
+<!-- Notebook Summary Banner -->
+<div id="notebook-summary-banner">
+<strong>Active Project:</strong> <span data-i18n="auto_loading_workspace_35" id="summary-text">Loading workspaceÔÇª</span>
+<span class="knowledge-scope-status" id="knowledge-scope-status"></span>
+</div>
+<div class="chat-stream-right" id="chat-stream">
+<div class="system-msg">
+<strong>Welcome.</strong> I am your AI Board Member. Select a project, then check only the source documents you allow me to use. With no selected source, I answer without project RAG.
             </div>
-            <div class="input-group">
-              <label for="provider-draft-id">Provider ID</label>
-              <input id="provider-draft-id" class="param-select full-width" maxlength="48" placeholder="internal-gateway" />
-            </div>
-          </div>
-          <div class="panel-input-grid">
-            <div class="input-group">
-              <label for="provider-draft-adapter">Adapter contract</label>
-              <select id="provider-draft-adapter" class="param-select full-width">
-                <option value="openai_compatible">OpenAI-compatible chat</option>
-                <option value="anthropic_messages">Anthropic Messages</option>
-                <option value="gemini_generate_content">Gemini Generate Content</option>
-                <option value="custom_adapter">Custom adapter (design draft)</option>
-              </select>
-            </div>
-            <div class="input-group">
-              <label for="provider-draft-endpoint">Base endpoint (optional)</label>
-              <input id="provider-draft-endpoint" class="param-select full-width" maxlength="500" placeholder="https://api.example.com/v1" />
-            </div>
-          </div>
-          <div class="input-group">
-            <label for="provider-draft-models">Candidate models</label>
-            <textarea id="provider-draft-models" class="habitat-prompt-textarea compact-textarea" rows="3" placeholder="One model per line. These are catalog notes, not enabled deployments."></textarea>
-          </div>
-          <div class="input-group">
-            <label for="provider-draft-note">Setup note</label>
-            <textarea id="provider-draft-note" class="habitat-prompt-textarea compact-textarea" rows="3" maxlength="500" placeholder="What must be implemented or approved before this connection can go live?"></textarea>
-          </div>
-          <div class="provider-draft-notice">Drafts store no credentials and cannot be selected by agents until a tested runtime adapter is enabled.</div>
-          <div class="modal-actions">
-            <span id="provider-setup-status" class="subtext" aria-live="polite"></span>
-            <button type="submit" class="save-btn">Save Provider Draft</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <div id="doc-upload-modal" class="modal-overlay" style="display: none;">
-      <div class="modal-card" style="width: 80%; max-width: 600px;">
-        <div class="modal-header flex-between">
-          <div>
-            <h2>📄 Upload Document</h2>
-            <p>Ingest files into the vector knowledge store</p>
-          </div>
-          <button type="button" id="close-upload-modal-btn" class="close-icon-btn">✕</button>
-        </div>
-        
-        <div class="upload-card expanded-dropzone" id="drop-zone-page">
-          <div class="upload-icon-wrapper">
-            <span class="upload-icon">☁️</span>
-          </div>
-          <h3>Drag & drop your files here</h3>
-          <p class="upload-subtext">Supports PDF, Word, Excel, PowerPoint, CSV, Markdown & TXT</p>
-          <input type="file" id="file-input-page" accept=".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.txt,.md" hidden />
-          <button type="button" id="select-file-btn-page" class="upload-btn">Choose File</button>
-        </div>
-
-        <div id="upload-status-page" class="upload-status" style="display: none;"></div>
-
-        <div class="ingestion-params" style="margin-top: 15px;">
-          <div class="param-row">
-            <label for="chunk-size-select">Chunk Size:</label>
-            <select id="chunk-size-select" class="param-select">
-              <option value="500">500 Tokens (High Precision)</option>
-              <option value="1200" selected>1,200 Tokens (Balanced RAG)</option>
-              <option value="2000">2,000 Tokens (High Context)</option>
-            </select>
-          </div>
-          <div class="param-row">
-            <label for="embedding-select">Embedding Model:</label>
-            <select id="embedding-select" class="param-select">
-              <option value="azure">Azure OpenAI text-embedding-3-small (1536-dim)</option>
-              <option value="bge">BGE-Large-EN (1024-dim)</option>
-            </select>
-          </div>
-          <div class="param-row">
-            <label for="upload-notebook-select">Add to project:</label>
-            <select id="upload-notebook-select" class="param-select"></select>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- PAGE VIEW 1: Executive Boardroom Studio (Google AI Studio Inspired Layout) -->
-    <div id="view-dashboard" class="page-view active-view">
-      <main class="main-grid full-height-grid">
-        
-        <!-- COLUMN 1: Left Navigation & Notebook Sidebar (~260px) -->
-        <aside class="left-sidebar">
-          <div class="sidebar-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-right: 8px; border-bottom: none;">
-            <span class="section-label" style="text-transform: capitalize; font-weight: 600; font-size: 1rem; color: var(--accent-blue);">Projects</span>
-            <div style="display: flex; gap: 4px;">
-
-              <button type="button" id="new-notebook-btn" class="icon-btn" style="background: none; border: none; color: #888; cursor: pointer; padding: 4px; border-radius: 4px;" title="New Project">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
-              </button>
-            </div>
-          </div>
-
-          <p id="business-context-summary" class="business-context-summary">Forest Joensuu DNA is loading…</p>
-
-
-          <!-- Notebook List -->
-          <div class="notebook-list-section" id="notebook-list-container">
-            <div class="notebook-item project-loading-state">Loading project workspaces…</div>
-          </div>
-          
-        </aside>
-        
-        <!-- COLUMN 2: Center Workspace (Combined Chat & Briefing) -->
-        <section class="center-chat-panel">
-          <div class="chat-panel-header">
-            <h3>AI Board Member</h3>
-            <span class="subtext">Select one or more project folders to set the internal knowledge scope</span>
-          </div>
-
-          <!-- Active Model & Context -->
-          <div class="chat-context-banner">
-            <span id="active-model-engine-badge" class="status-pill-purple">Azure OpenAI</span>
-            <span id="active-context-badge" class="badge glow-green">Notebook Grounded</span>
-          </div>
-
-          <!-- Notebook Summary Banner -->
-          <div id="notebook-summary-banner">
-            <strong>Active Project:</strong> <span id="summary-text">Loading workspace…</span>
-            <span id="knowledge-scope-status" class="knowledge-scope-status"></span>
-          </div>
-
-          <div id="chat-stream" class="chat-stream-right">
-            <div class="system-msg">
-            <strong>Welcome.</strong> I am your AI Board Member. Select a project, then check only the source documents you allow me to use. With no selected source, I answer without project RAG.
-            </div>
-          </div>
-
-          <details id="workflow-activity-panel" class="workflow-activity-panel" aria-live="polite" hidden>
-            <summary class="workflow-activity-header">
-              <div>
-                <span class="section-label">AGENT ACTIVITY</span>
-                <strong id="workflow-activity-title">Deep research</strong>
-              </div>
-              <span id="workflow-activity-status" class="workflow-status">Queued</span>
-            </summary>
-            <p id="workflow-activity-action" class="workflow-current-action">Preparing the workflow…</p>
-            <ol id="workflow-activity-steps" class="workflow-step-list"></ol>
-            <div id="workflow-steering-controls" class="workflow-steering-controls" hidden>
-              <label class="sr-only" for="workflow-steering-input">Steer this research</label>
-              <input id="workflow-steering-input" class="param-select" maxlength="2000" placeholder="Add direction for the next safe step" />
-              <button type="button" id="workflow-steering-btn" class="action-sm-btn">Steer</button>
-              <button type="button" id="workflow-stop-btn" class="workflow-stop-btn">Stop</button>
-            </div>
-            <p id="workflow-control-note" class="workflow-control-note" hidden>Actions are shown at safe workflow boundaries; internal reasoning is not exposed.</p>
-          </details>
-
-          <!-- Live Vision Container (Hidden by default) -->
-          <div id="live-vision-container" class="live-vision-container" style="display: none;">
-            <div class="live-vision-header">
-              <span id="live-status-indicator" class="pulse-indicator"></span>
-              <span id="live-status-text">Live Mode: Initializing...</span>
-            </div>
-            <video id="webcam-feed" autoplay muted playsinline></video>
-            <canvas id="webcam-canvas" style="display: none;"></canvas>
-          </div>
-
-          <!-- Chat Input -->
-          <div class="chat-input-area right-capsule-bar">
-            <div id="manager-prompt-queue" class="manager-prompt-queue" aria-live="polite" hidden></div>
-            <form id="chat-form" class="chat-form capsule-form">
-              <textarea id="chat-input" aria-label="Message your AI Board Member" placeholder="Ask your AI Board Member…" rows="1"></textarea>
-              <div class="capsule-tools">
-                <details class="composer-actions">
-                  <summary class="capsule-secondary-btn composer-actions-toggle" title="More chat actions">^</summary>
-                  <div class="composer-actions-menu">
-                    <label class="deep-research-mode-toggle" for="deep-research-mode">
-                      <input id="deep-research-mode" type="checkbox" />
-                      <span>Deep research</span>
-                    </label>
-                <button type="button" id="btn-upload-doc" class="capsule-secondary-btn" title="Upload Document to Vault">Upload</button>
-                <button type="button" id="btn-save-meeting" class="capsule-secondary-btn" title="Save meeting transcript to Vault">Save to Vault</button>
-                <button type="button" id="btn-go-live" class="capsule-secondary-btn" title="Toggle Voice & Vision Live Mode">Go Live</button>
-                  </div>
-                </details>
-                <button type="submit" id="send-btn" class="capsule-send-btn">↵</button>
-              </div>
-            </form>
-          </div>
-        </section>
-
-        <!-- COLUMN 3: User-owned ChatGPT-style conversation history -->
-        <aside class="chat-session-sidebar" aria-label="Chat sessions">
-          <div class="sidebar-section-header chat-session-header">
-            <div>
-              <span class="section-label">CHAT SESSIONS</span>
-              <span id="chat-session-project-label" class="chat-session-project-label">All conversations</span>
-            </div>
-            <button type="button" id="new-chat-session-btn" class="chip-btn btn-sm" title="Start a fresh conversation">+ New</button>
-          </div>
-          <p class="chat-session-help">Project and file selections add AI Board Member context without switching the active conversation.</p>
-          <div id="chat-session-list" class="chat-session-list" aria-live="polite">
-            <p class="chat-session-empty">Loading conversations…</p>
-          </div>
-          <div class="chat-session-footer">Sessions stay with the signed-in user while knowledge scope changes.</div>
-        </aside>
-
-      </main>
-    </div>
-
-    <!-- PAGE VIEW: Supervisor-facing MVP product mock -->
-    <div id="view-mvp-showcase" class="page-view" style="display: none;">
-      <section class="mvp-showcase-page">
-        <header class="mvp-showcase-hero">
-          <div class="mvp-hero-copy">
-            <div class="mvp-eyebrow-row">
-              <span class="mvp-demo-badge">ILLUSTRATIVE PROTOTYPE</span>
-              <span class="mvp-scenario-label">Forest Bioeconomy 2027 scenario</span>
-            </div>
-            <h2>From market signals to regional impact</h2>
-            <p>One decision workspace that discovers opportunities, prioritizes proposals, turns meetings into action, and follows the outcomes that matter.</p>
-          </div>
-          <div class="mvp-hero-actions">
-            <span id="mvp-demo-status" class="mvp-demo-status">Mock data ready</span>
-            <div class="mvp-hero-button-row">
-              <button type="button" id="mvp-run-demo-btn" class="save-btn">Run demo scan</button>
-            </div>
-          </div>
-        </header>
-
-        <nav class="mvp-local-tabs" aria-label="MVP showcase views">
-          <button type="button" id="mvp-overview-tab" class="mvp-local-tab active">Executive view</button>
-          <button type="button" id="mvp-config-tab" class="mvp-local-tab">Configure AI context</button>
-          <button type="button" id="mvp-connect-tab" class="mvp-local-tab">How it connects</button>
-        </nav>
-
-        <div id="mvp-overview-panel">
-          <section class="mvp-flow-strip" aria-label="Strategic intelligence workflow">
-            <div class="mvp-flow-step"><span>01</span><strong>Monitor</strong><small>Feeds, alerts and strategies</small></div>
-            <div class="mvp-flow-arrow">-&gt;</div>
-            <div class="mvp-flow-step"><span>02</span><strong>Identify</strong><small>Business, RDI and partner leads</small></div>
-            <div class="mvp-flow-arrow">-&gt;</div>
-            <div class="mvp-flow-step"><span>03</span><strong>Prioritize</strong><small>Evidence-based scorecards</small></div>
-            <div class="mvp-flow-arrow">-&gt;</div>
-            <div class="mvp-flow-step"><span>04</span><strong>Act &amp; measure</strong><small>Actions, owners and outcomes</small></div>
-          </section>
-
-          <section class="mvp-kpi-grid" aria-label="Illustrative ecosystem outcomes">
-            <article class="mvp-kpi-card"><span>Job creation pipeline</span><strong>168</strong><small>of 420 target jobs</small><div class="mvp-progress"><i style="width:40%"></i></div></article>
-            <article class="mvp-kpi-card"><span>Investment pipeline</span><strong>EUR 84M</strong><small>12 qualified leads</small><div class="mvp-progress"><i style="width:64%"></i></div></article>
-            <article class="mvp-kpi-card"><span>Startup scaling</span><strong>4</strong><small>Susicorns in acceleration</small><div class="mvp-progress"><i style="width:72%"></i></div></article>
-            <article class="mvp-kpi-card"><span>RDI funding pipeline</span><strong>EUR 12.6M</strong><small>6 active calls</small><div class="mvp-progress"><i style="width:56%"></i></div></article>
-          </section>
-
-          <div class="mvp-primary-grid">
-            <article class="mvp-showcase-panel mvp-radar-panel">
-              <div class="mvp-panel-heading"><div><span class="mvp-section-kicker">OPERATING ENVIRONMENT</span><h3>Intelligence radar</h3></div><span class="mvp-live-pill"><i></i> 18 new signals</span></div>
-              <div class="mvp-signal-list">
-                <div class="mvp-signal-card featured">
-                  <div class="mvp-signal-top"><span class="mvp-source-pill">EU Funding Portal</span><span>2h ago</span></div>
-                  <h4>EUR 35M circular bio-based materials call opens</h4>
-                  <p>Strong match with regional wood-fibre expertise and the 2027 RDI funding target.</p>
-                  <div class="mvp-signal-footer"><span>Relevance 94%</span><button type="button" class="mvp-text-action">Promote to opportunity</button></div>
-                </div>
-                <div class="mvp-signal-card">
-                  <div class="mvp-signal-top"><span class="mvp-source-pill">Nordic Investment News</span><span>5h ago</span></div>
-                  <h4>Growth fund seeks industrial decarbonization ventures</h4>
-                  <p>Potential capital partner for two companies currently in the regional scale-up programme.</p>
-                  <div class="mvp-signal-footer"><span>Relevance 88%</span><button type="button" class="mvp-text-action">Review signal</button></div>
-                </div>
-                <div class="mvp-signal-card compact"><div><span class="mvp-source-pill">Google Alert</span><h4>Delegation planning sustainable construction visit to Finland</h4></div><span class="mvp-score-ring">82</span></div>
-              </div>
-            </article>
-
-            <article class="mvp-showcase-panel mvp-opportunity-panel">
-              <div class="mvp-panel-heading"><div><span class="mvp-section-kicker">OPPORTUNITY IDENTIFICATION</span><h3>Opportunity pipeline</h3></div><button type="button" class="chip-btn btn-sm">View all 12</button></div>
-              <div class="mvp-pipeline">
-                <div class="mvp-pipeline-column">
-                  <div class="mvp-column-title"><span>Detected</span><b>4</b></div>
-                  <article class="mvp-opportunity-card"><span class="mvp-opportunity-type">RDI FUNDING</span><h4>Circular Bio-based Materials Call</h4><p>Deadline 18 Nov 2026</p><footer><span>EUR 3-5M</span><span>94% fit</span></footer></article>
-                  <article class="mvp-opportunity-card"><span class="mvp-opportunity-type">COLLABORATION</span><h4>German Timber Construction Delegation</h4><p>Partner discovery</p><footer><span>25 jobs</span><span>82% fit</span></footer></article>
-                </div>
-                <div class="mvp-pipeline-column">
-                  <div class="mvp-column-title"><span>Qualifying</span><b>3</b></div>
-                  <article class="mvp-opportunity-card emphasis"><span class="mvp-opportunity-type">INVEST-IN</span><h4>Fibre Packaging Scale-up Site</h4><p>Owner: Elina K.</p><footer><span>EUR 28M</span><span>65 jobs</span></footer></article>
-                </div>
-                <div class="mvp-pipeline-column">
-                  <div class="mvp-column-title"><span>Board review</span><b>2</b></div>
-                  <article class="mvp-opportunity-card"><span class="mvp-opportunity-type">STARTUP</span><h4>Biochar Analytics Seed Round</h4><p>Decision due Friday</p><footer><span>EUR 1.8M</span><span>12 jobs</span></footer></article>
-                </div>
-              </div>
-            </article>
-          </div>
-
-          <div class="mvp-secondary-grid">
-            <article class="mvp-showcase-panel">
-              <div class="mvp-panel-heading"><div><span class="mvp-section-kicker">IDEA PRIORITIZATION</span><h3>Proposal scorecard</h3></div><span class="mvp-total-score">8.3 / 10</span></div>
-              <div class="mvp-proposal-title"><div><strong>Circular Wood Fibre Scale-up Hub</strong><span>Recommended for board review</span></div><span class="mvp-recommend-pill">ADVANCE</span></div>
-              <div class="mvp-score-list">
-                <div><span>Strategic fit</span><i><b style="width:92%"></b></i><strong>9.2</strong></div>
-                <div><span>Regional impact</span><i><b style="width:88%"></b></i><strong>8.8</strong></div>
-                <div><span>Feasibility</span><i><b style="width:71%"></b></i><strong>7.1</strong></div>
-                <div><span>Scalability</span><i><b style="width:84%"></b></i><strong>8.4</strong></div>
-              </div>
-              <div class="mvp-evidence-note"><strong>Why it ranks first</strong><p>High alignment with three regional strategies, credible industry partners, and an estimated 45 direct jobs. Main risk: pilot facility co-financing.</p></div>
-            </article>
-
-            <article class="mvp-showcase-panel">
-              <div class="mvp-panel-heading"><div><span class="mvp-section-kicker">MEETING &amp; WORKSHOP SUPPORT</span><h3>Meeting-to-action copilot</h3></div><span class="mvp-meeting-date">Executive workshop · Today</span></div>
-              <div class="mvp-meeting-summary"><span>AI SUMMARY</span><p>The group aligned on the fibre hub as the lead proposal and requested a financing package before the next board meeting.</p></div>
-              <div class="mvp-action-list">
-                <div><span class="mvp-check">&#10003;</span><div><strong>Confirm university pilot capacity</strong><small>Owner: Antti · Due 7 Aug</small></div><span class="mvp-action-status">In progress</span></div>
-                <div><span class="mvp-check">&#10003;</span><div><strong>Draft Invest-In financing package</strong><small>Owner: Elina · Due 12 Aug</small></div><span class="mvp-action-status">Assigned</span></div>
-                <div><span class="mvp-theme-icon">#</span><div><strong>Recurring theme</strong><small>Industrial pilot infrastructure appeared in 3 meetings</small></div><span class="mvp-action-status neutral">Insight</span></div>
-              </div>
-              <button type="button" class="mvp-agenda-button">Preview next meeting agenda <span>-&gt;</span></button>
-            </article>
-          </div>
-
-          <section class="mvp-roadmap-strip">
-            <div><span>SHOWCASE NOW</span><strong>Illustrative decision workspace</strong><small>Static scenario, clear product story</small></div><i></i>
-            <div><span>NEXT</span><strong>Connect existing agents and SQLite</strong><small>Reuse current research, scoring and meeting capabilities</small></div><i></i>
-            <div><span>LATER</span><strong>Standalone Windows + Linux app</strong><small>Automated feeds, real KPI sources, packaged runtime</small></div>
-          </section>
-        </div>
-
-        <div id="mvp-config-panel" style="display: none;">
-          <div class="mvp-config-grid">
-            <section class="mvp-showcase-panel mvp-context-form">
-              <div class="mvp-panel-heading"><div><span class="mvp-section-kicker">FUTURE CONFIGURATION PAGE</span><h3>Strategic AI context</h3></div><span class="mvp-demo-badge subtle">UI MOCK</span></div>
-              <p class="mvp-config-intro">Supervisors define the business meaning. The system assembles only the relevant context before an agent starts.</p>
-              <label for="mvp-context-goal">Primary goal</label><textarea id="mvp-context-goal" rows="3">Double regional forest bioeconomy value-add and open pathways to 420 private-sector jobs.</textarea>
-              <div class="mvp-form-row">
-                <label>Region<input id="mvp-context-region" type="text" value="Joensuu &amp; North Karelia" /></label>
-                <label>Target date<input id="mvp-context-deadline" type="date" value="2027-12-31" /></label>
-              </div>
-              <label for="mvp-context-focus">Current focus</label><select id="mvp-context-focus"><option>Investment and RDI opportunities</option><option>Startup scaling</option><option>Workshop follow-up</option></select>
-              <label for="mvp-context-constraint">Key constraint</label><input id="mvp-context-constraint" type="text" value="Prioritize proposals with measurable regional employment impact" />
-              <div class="mvp-context-actions"><button type="button" id="mvp-preview-context-btn" class="save-btn">Build context preview</button><span id="mvp-context-saved">Prototype only · not saved</span></div>
-            </section>
-
-            <section class="mvp-showcase-panel mvp-context-preview-panel">
-              <div class="mvp-panel-heading"><div><span class="mvp-section-kicker">PROMPT CONTEXT PREVIEW</span><h3>What the agent receives</h3></div><span class="mvp-context-count">6 context blocks</span></div>
-              <div class="mvp-context-stack">
-                <div><span>01</span><p><strong>Protected operating rules</strong><small>Evidence, citations, human decision authority</small></p><b>LOCKED</b></div>
-                <div><span>02</span><p><strong>Project objective</strong><small id="mvp-preview-goal">Double regional forest bioeconomy value-add and open pathways to 420 private-sector jobs.</small></p><b>DYNAMIC</b></div>
-                <div><span>03</span><p><strong>Region &amp; deadline</strong><small id="mvp-preview-region">Joensuu &amp; North Karelia · target 31 Dec 2027</small></p><b>DYNAMIC</b></div>
-                <div><span>04</span><p><strong>Relevant KPIs and rubric</strong><small>8 active KPIs · 7 scoring criteria</small></p><b>SELECTED</b></div>
-                <div><span>05</span><p><strong>Retrieved evidence</strong><small>Only sources relevant to the current task</small></p><b>RETRIEVED</b></div>
-                <div><span>06</span><p><strong>User task and output format</strong><small id="mvp-preview-focus">Investment and RDI opportunities · structured opportunity cards</small></p><b>RUNTIME</b></div>
-              </div>
-              <div class="mvp-context-result"><span>Expected result</span><p>More consistent agent decisions without hardwiring every client goal into source code.</p></div>
-            </section>
-          </div>
-
-          <div class="mvp-config-bottom-grid">
-            <section class="mvp-showcase-panel">
-              <div class="mvp-panel-heading"><div><span class="mvp-section-kicker">SCORING RUBRIC</span><h3>Adjustable priorities</h3></div><span id="mvp-weight-total" class="mvp-weight-total">100% allocated</span></div>
-              <div class="mvp-weight-list">
-                <label>Strategic fit <input class="mvp-weight-input" type="number" min="0" max="100" value="20" /><span>%</span></label>
-                <label>Regional impact <input class="mvp-weight-input" type="number" min="0" max="100" value="20" /><span>%</span></label>
-                <label>Feasibility <input class="mvp-weight-input" type="number" min="0" max="100" value="15" /><span>%</span></label>
-                <label>Resource needs <input class="mvp-weight-input" type="number" min="0" max="100" value="10" /><span>%</span></label>
-                <label>Risk level <input class="mvp-weight-input" type="number" min="0" max="100" value="10" /><span>%</span></label>
-                <label>Scalability <input class="mvp-weight-input" type="number" min="0" max="100" value="10" /><span>%</span></label>
-                <label>Jobs &amp; economic value <input class="mvp-weight-input" type="number" min="0" max="100" value="15" /><span>%</span></label>
-              </div>
-            </section>
-            <section class="mvp-showcase-panel">
-              <div class="mvp-panel-heading"><div><span class="mvp-section-kicker">LEAN KPI SET</span><h3>Eight outcomes, one view</h3></div><span class="mvp-context-count">8 / 9 active</span></div>
-              <div class="mvp-kpi-chip-grid"><span>Private-sector jobs</span><span>Bioeconomy value-add</span><span>Investment pipeline</span><span>Invest-In cases</span><span>Delegation conversion</span><span>Startup scaling</span><span>RDI funding</span><span>Opportunities to action</span></div>
-              <p class="mvp-config-footnote">In the working product, each KPI can have a baseline, target, owner, period and evidence source.</p>
-            </section>
-          </div>
-        </div>
-
-        <div id="mvp-connect-panel" style="display: none;">
-          <section class="mvp-connect-intro mvp-showcase-panel">
-            <div>
-              <span class="mvp-section-kicker">FROM MOCK UI TO WORKING PRODUCT</span>
-              <h3>Connect the screens to foundations already in this app</h3>
-              <p>The mock is the future user experience. Most AI capabilities already exist behind it; the next step is to add structured data contracts and connect each screen to the appropriate agent, workflow and SQLite record.</p>
-            </div>
-            <div class="mvp-connect-legend" aria-label="Connection status legend">
-              <span><i class="shown"></i>Shown in mock</span>
-              <span><i class="exists"></i>Foundation exists</span>
-              <span><i class="future"></i>Future connection</span>
-            </div>
-          </section>
-
-          <section class="mvp-architecture-panel mvp-showcase-panel">
-            <div class="mvp-panel-heading">
-              <div><span class="mvp-section-kicker">END-TO-END FLOW</span><h3>How information moves through the future system</h3></div>
-              <span class="mvp-demo-badge subtle">MODULAR MONOLITH</span>
-            </div>
-            <div class="mvp-architecture-flow" aria-label="Future system information flow">
-              <article><span>01</span><b>Inputs</b><small>RSS, Google Alerts, strategy files, proposals, transcripts</small><em>NEW ADAPTERS</em></article>
-              <i>-&gt;</i>
-              <article><span>02</span><b>Context compiler</b><small>Select goals, constraints, rubric, KPIs and relevant evidence</small><em>LIGHT NEW SERVICE</em></article>
-              <i>-&gt;</i>
-              <article><span>03</span><b>Existing agents</b><small>Foresight, Idea Scorer, Meeting Notes, Susicorn and Manager</small><em>ALREADY EXISTS</em></article>
-              <i>-&gt;</i>
-              <article><span>04</span><b>Structured results</b><small>Validate signals, opportunities, scores, actions and KPI updates</small><em>NEW SCHEMAS</em></article>
-              <i>-&gt;</i>
-              <article><span>05</span><b>SQLite workspace</b><small>Persist review state, owners, deadlines, evidence and history</small><em>EXTEND EXISTING DB</em></article>
-              <i>-&gt;</i>
-              <article><span>06</span><b>Showcase UI</b><small>Replace illustrative values with API data and human controls</small><em>WIRE THIS MOCK</em></article>
-            </div>
-            <div class="mvp-connection-principle"><strong>Key principle</strong><span>The prompt is assembled from saved business configuration at task time. The database remains the source of truth; the LLM analyzes and proposes, while application code validates and calculates.</span></div>
-          </section>
-
-          <section class="mvp-module-map">
-            <article class="mvp-connect-card">
-              <header><span class="mvp-connect-number">01</span><div><small>OPERATING ENVIRONMENT</small><h3>Intelligence radar</h3></div><b class="mvp-status-mixed">PARTLY EXISTS</b></header>
-              <div class="mvp-connect-columns">
-                <div><span>What the mock shows</span><p>New signals, sources, timestamps, relevance scores and promotion into opportunities.</p></div>
-                <div><span>Foundation already here</span><p>Foresight Agent, deep research, web scraper and the background task scheduler.</p></div>
-                <div><span>Connection to add</span><p>Feed registry + RSS polling -> deduplication -> <code>signals</code> records -> Foresight analysis -> radar API.</p></div>
-              </div>
-              <footer><code>foresight.py</code><code>autonomous_research.py</code><code>web_scraper.py</code></footer>
-            </article>
-
-            <article class="mvp-connect-card">
-              <header><span class="mvp-connect-number">02</span><div><small>OPPORTUNITY IDENTIFICATION</small><h3>Opportunity pipeline</h3></div><b class="mvp-status-future">NEEDS DATA MODEL</b></header>
-              <div class="mvp-connect-columns">
-                <div><span>What the mock shows</span><p>Detected, qualifying and board-review cards with value, job impact, confidence, owner and deadline.</p></div>
-                <div><span>Foundation already here</span><p>Foresight recommendations, Susicorn analysis, Manager delegation and the existing Kanban interaction pattern.</p></div>
-                <div><span>Connection to add</span><p>Validated opportunity extraction -> <code>opportunities</code> table -> review API -> pipeline UI -> optional Kanban task.</p></div>
-              </div>
-              <footer><code>susicorn.py</code><code>manager.py</code><code>kanban_tasks</code></footer>
-            </article>
-
-            <article class="mvp-connect-card">
-              <header><span class="mvp-connect-number">03</span><div><small>IDEA PRIORITIZATION</small><h3>Proposal scorecard</h3></div><b class="mvp-status-exists">STRONG FOUNDATION</b></header>
-              <div class="mvp-connect-columns">
-                <div><span>What the mock shows</span><p>A comparable total score, criterion bars, recommendation, evidence and major risk.</p></div>
-                <div><span>Foundation already here</span><p>Idea Scorer Agent already evaluates jobs, strategic alignment, feasibility and startup potential.</p></div>
-                <div><span>Connection to add</span><p>Dynamic rubric version -> Idea Scorer JSON -> validation -> code-calculated weighted total -> saved scorecard.</p></div>
-              </div>
-              <footer><code>idea_scorer.py</code><code>project_rubrics</code><code>proposal_scores</code></footer>
-            </article>
-
-            <article class="mvp-connect-card">
-              <header><span class="mvp-connect-number">04</span><div><small>MEETING SUPPORT</small><h3>Meeting-to-action copilot</h3></div><b class="mvp-status-exists">STRONG FOUNDATION</b></header>
-              <div class="mvp-connect-columns">
-                <div><span>What the mock shows</span><p>Summary, assigned actions, deadlines, recurring themes and the next agenda.</p></div>
-                <div><span>Foundation already here</span><p>Meeting Notes Agent processes transcripts, produces these sections and stores meeting documents.</p></div>
-                <div><span>Connection to add</span><p>Transcript input -> structured meeting result -> <code>actions</code> and <code>themes</code> -> approval -> task board.</p></div>
-              </div>
-              <footer><code>meeting_notes.py</code><code>documents</code><code>kanban_tasks</code></footer>
-            </article>
-
-            <article class="mvp-connect-card">
-              <header><span class="mvp-connect-number">05</span><div><small>STRATEGIC CONFIGURATION</small><h3>AI context builder</h3></div><b class="mvp-status-future">LIGHT NEW LAYER</b></header>
-              <div class="mvp-connect-columns">
-                <div><span>What the mock shows</span><p>Goals, region, target date, constraints, KPI selection, scoring weights and context preview.</p></div>
-                <div><span>Foundation already here</span><p>Project workspaces, agent profiles, notebook boundaries and prompt compilation already exist.</p></div>
-                <div><span>Connection to add</span><p>Save project settings -> select task-relevant context -> compile versioned prompt -> record configuration snapshot per run.</p></div>
-              </div>
-              <footer><code>framework.py</code><code>god_mode.py</code><code>notebooks</code></footer>
-            </article>
-
-            <article class="mvp-connect-card">
-              <header><span class="mvp-connect-number">06</span><div><small>OUTCOME MEASUREMENT</small><h3>Strategic KPI view</h3></div><b class="mvp-status-future">NEEDS DATA MODEL</b></header>
-              <div class="mvp-connect-columns">
-                <div><span>What the mock shows</span><p>Four executive cards backed by a lean set of eight strategic ecosystem KPIs.</p></div>
-                <div><span>Foundation already here</span><p>Dashboard components, SQLite storage and API usage metrics demonstrate the display and persistence pattern.</p></div>
-                <div><span>Connection to add</span><p>KPI definitions + manual/imported observations -> deterministic calculations -> history API -> replace mock values.</p></div>
-              </div>
-              <footer><code>local_manager.py</code><code>kpi_definitions</code><code>kpi_observations</code></footer>
-            </article>
-          </section>
-
-          <div class="mvp-connect-bottom-grid">
-            <section class="mvp-showcase-panel">
-              <div class="mvp-panel-heading"><div><span class="mvp-section-kicker">MINIMUM DATA CONTRACTS</span><h3>Small records that make the mock real</h3></div></div>
-              <div class="mvp-contract-table-wrap">
-                <table class="mvp-contract-table">
-                  <thead><tr><th>Record</th><th>Essential fields</th><th>Created by</th></tr></thead>
-                  <tbody>
-                    <tr><td>Project context</td><td>goal, region, deadline, constraints, active rubric/KPIs</td><td>Supervisor</td></tr>
-                    <tr><td>Signal</td><td>source, URL, date, summary, relevance, evidence</td><td>Feed + Foresight</td></tr>
-                    <tr><td>Opportunity</td><td>type, value, jobs, deadline, confidence, owner, stage</td><td>Agent + reviewer</td></tr>
-                    <tr><td>Scorecard</td><td>rubric version, criterion scores, evidence, total, override</td><td>Idea Scorer + code</td></tr>
-                    <tr><td>Meeting action</td><td>meeting, task, owner, due date, status, source text</td><td>Meeting Agent + reviewer</td></tr>
-                    <tr><td>KPI observation</td><td>KPI, period, value, state, source, evidence</td><td>User/import/workflow</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            <section class="mvp-showcase-panel">
-              <div class="mvp-panel-heading"><div><span class="mvp-section-kicker">DELIVERY PATH</span><h3>Build outward from this showcase</h3></div></div>
-              <ol class="mvp-delivery-path">
-                <li><span>NOW</span><div><strong>Validate the product story</strong><p>Use this mock with the supervisor. Confirm screens, terminology, KPIs and decisions before backend work.</p></div></li>
-                <li><span>NEXT</span><div><strong>Connect one vertical slice</strong><p>Make configuration + proposal scoring real first: save context, call Idea Scorer, validate JSON and display the result.</p></div></li>
-                <li><span>THEN</span><div><strong>Connect meetings and opportunities</strong><p>Persist structured actions and opportunity cards, reusing the task board and existing agents.</p></div></li>
-                <li><span>LATER</span><div><strong>Automate inputs and packaging</strong><p>Add RSS/Alerts polling, real KPI imports, then package the stable app for Windows and Linux.</p></div></li>
-              </ol>
-            </section>
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <!-- PAGE VIEW 2: Dedicated Agent Customization Studio Page -->
-    <div id="view-customization" class="page-view" style="display: none;">
-      <div class="customization-layout">
-        
-        <!-- Customization Header Banner -->
-        <div class="customization-header-banner">
-          <div>
-            <h2>⚙️ Agent Runtime & Provider Studio</h2>
-            <p>Configure agent models, temperature, and output limits. Azure is operational today; the registry below is ready to model and prepare future providers without exposing untested routing.</p>
-          </div>
-          <div class="engine-badge glow-purple">
-            <span id="prompt-stream-badge" style="color: #4ade80;">🟢 Embedded SQLite Connected</span>
-          </div>
-        </div>
-
-        <div class="customization-grid">
-          
-          <!-- Panel 1: API Usage Monitor (New) -->
-          <div class="custom-panel wide-panel">
-            <div class="panel-header flex-between">
-              <div>
-                <h3>📊 API Usage Dashboard</h3>
-                <span class="subtext">Track token consumption and estimated cost across all LLM providers</span>
-              </div>
-              <button type="button" id="refresh-usage-btn" class="chip-btn">🔄 Refresh Usage</button>
-            </div>
-            
-            <div class="usage-dashboard-grid">
-              <div class="stat-card">
-                <span class="stat-label">Total Requests</span>
-                <span class="stat-value" id="usage-requests">0</span>
-              </div>
-              <div class="stat-card">
-                <span class="stat-label">Prompt Tokens</span>
-                <span class="stat-value" id="usage-prompt-tokens">0</span>
-              </div>
-              <div class="stat-card">
-                <span class="stat-label">Completion Tokens</span>
-                <span class="stat-value" id="usage-completion-tokens">0</span>
-              </div>
-              <div class="stat-card">
-                <span class="stat-label">Est. Cost (USD)</span>
-                <span class="stat-value highlight-green" id="usage-cost">$0.00</span>
-              </div>
-            </div>
-            
-            <div class="provider-breakdown-section">
-              <h4 class="provider-breakdown-title">Provider Breakdown</h4>
-              <table class="doc-table" id="usage-provider-table">
-                <thead>
-                  <tr>
-                    <th>Provider</th>
-                    <th>Requests</th>
-                    <th>Prompt Tkns</th>
-                    <th>Completion Tkns</th>
-                    <th>Est. Cost</th>
-          </div>
-          <div class="engine-badge glow-purple">
-            <span id="prompt-stream-badge" style="color: #4ade80;">Embedded SQLite Connected</span>
-          </div>
-        </div>
-
-        <div class="customization-grid">
-          
-          <!-- Panel 1: API Usage Monitor (New) -->
-          <div class="custom-panel wide-panel">
-            <div class="panel-header flex-between">
-              <div>
-                <h3>API Usage Dashboard</h3>
-                <span class="subtext">Track token consumption and estimated cost across all LLM providers</span>
-              </div>
-              <button type="button" id="refresh-usage-btn" class="chip-btn">Refresh Usage</button>
-            </div>
-            
-            <div class="usage-dashboard-grid">
-              <div class="stat-card">
-                <span class="stat-label">Total Requests</span>
-                <span class="stat-value" id="usage-requests">0</span>
-              </div>
-              <div class="stat-card">
-                <span class="stat-label">Prompt Tokens</span>
-                <span class="stat-value" id="usage-prompt-tokens">0</span>
-              </div>
-              <div class="stat-card">
-                <span class="stat-label">Completion Tokens</span>
-                <span class="stat-value" id="usage-completion-tokens">0</span>
-              </div>
-              <div class="stat-card">
-                <span class="stat-label">Est. Cost (USD)</span>
-                <span class="stat-value highlight-green" id="usage-cost">$0.00</span>
-              </div>
-            </div>
-            
-            <div class="provider-breakdown-section">
-              <h4 class="provider-breakdown-title">Provider Breakdown</h4>
-              <table class="doc-table" id="usage-provider-table">
-                <thead>
-                  <tr>
-                    <th>Provider</th>
-                    <th>Requests</th>
-                    <th>Prompt Tkns</th>
-                    <th>Completion Tkns</th>
-                    <th>Est. Cost</th>
-                  </tr>
-                </thead>
-                <tbody id="usage-provider-body">
-                  <tr><td colspan="5" class="placeholder-rag">No usage data yet.</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Panel 2: Provider Registry -->
-          <div class="custom-panel wide-panel">
-            <div class="panel-header flex-between">
-              <div>
-                <h3>Provider Registry</h3>
-                <span class="subtext">A setup board: operational providers are selectable; drafts are safe blueprints for installation.</span>
-              </div>
-              <div class="provider-registry-actions">
-                <span id="provider-registry-summary" class="subtext">Loading providers...</span>
-                <button type="button" id="add-provider-draft-btn" class="save-btn btn-sm">Add provider</button>
-              </div>
-            </div>
-            <div id="provider-registry-grid" class="provider-registry-grid" aria-live="polite"></div>
-          </div>
-
-          <!-- Panel 3: Agent Customization -->
-          <div class="custom-panel wide-panel">
-            <div class="panel-header flex-between">
-              <div>
-                <h3>Agent Identity & Model Settings</h3>
-                <span class="subtext">Choose any operational provider, then tune this agent's model, temperature, output budget, role, and persona.</span>
-              </div>
-              <div class="agent-selector-group">
-                <label for="habitat-agent-select" class="form-label highlight-purple agent-target-label">Target Agent:</label>
-                <select id="habitat-agent-select" class="param-select">
-                  <option value="ManagerAgent" selected>AI Board Member Agent</option>
-                  <option value="FinancialAdvisorAgent">Financial Advisor</option>
-                  <option value="MeetingNotesAgent">Meeting Secretary</option>
-                  <option value="ForesightAgent">Foresight Radar</option>
-                  <option value="IdeaScorerAgent">Impact Evaluator</option>
-                  <option value="SusicornAgent">Susicorn Accelerator</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="agent-runtime-grid">
-              <div>
-                <label for="habitat-provider-select" class="form-label highlight-purple">Target LLM Provider:</label>
-                <select id="habitat-provider-select" class="param-select full-width">
-                  <option value="azure">Azure OpenAI</option>
-                </select>
-              </div>
-              <div>
-                <label for="habitat-model-select" class="form-label highlight-blue">Deployment Model:</label>
-                <select id="habitat-model-select" class="param-select full-width">
-                  <option value="mvp-gpt-54-mini" selected>mvp-gpt-54-mini</option>
-                </select>
-              </div>
-              <div>
-                <label for="habitat-temperature-input" class="form-label highlight-amber">Temperature:</label>
-                <input id="habitat-temperature-input" class="param-select full-width" type="number" min="0" max="2" step="0.05" value="0.70" />
-              </div>
-              <div>
-                <label for="habitat-max-tokens-input" class="form-label highlight-green">Max output tokens:</label>
-                <input id="habitat-max-tokens-input" class="param-select full-width" type="number" min="128" max="16000" step="128" value="1500" />
-              </div>
-            </div>
-
-            <div style="margin-top: 15px;">
-              <label for="habitat-prompt-textarea" class="form-label">System Prompt Persona:</label>
-              <textarea id="habitat-prompt-textarea" class="habitat-prompt-textarea" rows="8"></textarea>
-            </div>
-
-            <div class="flex-between save-actions-row" style="margin-top: 15px;">
-              <button type="button" id="save-habitat-prompt-btn" class="save-btn">Save Agent Profile</button>
-              <span id="habitat-save-status" class="subtext" style="display: none;"></span>
-            </div>
-          </div>
-
-        </div>
-
-      </div>
-    </div>
-
-    
-    <!-- PAGE VIEW 3: Dedicated Database Studio -->
-    <div id="view-ingestion" class="page-view" style="display: none;">
-      <div class="db-studio-grid">
-        <!-- Sidebar: Tables -->
-        <aside class="left-sidebar">
-          <div class="sidebar-section-header">
-            <span class="section-label">SQLITE TABLES</span>
-          </div>
-          <div class="notebook-list-section" id="db-tables-list">
-            <!-- Tables injected here -->
-          </div>
-        </aside>
-
-        <!-- Main Data Grid -->
-        <section class="center-chat-panel db-workspace">
-          <div class="panel-header flex-between">
-            <div>
-              <h3 id="db-current-table-title">Select a Table</h3>
-              <span class="subtext">Developer Database Studio · inspect and manage local data</span>
-            </div>
-            <div class="db-toolbar-actions">
-              <button type="button" id="db-refresh-btn" class="chip-btn" style="display:none;">Refresh</button>
-              <button type="button" id="db-add-row-btn" class="chip-btn" style="display:none;">New Row</button>
-            </div>
-          </div>
-
-          <div class="db-table-wrapper">
-            <table class="doc-table db-data-table" id="db-data-table" style="display: none;">
-              <thead id="db-data-thead"></thead>
-              <tbody id="db-data-tbody"></tbody>
-            </table>
-            <div id="db-placeholder-msg" style="padding: 40px; text-align: center; color: var(--text-muted);">
+</div>
+<details aria-live="polite" class="workflow-activity-panel" hidden="" id="workflow-activity-panel">
+<summary class="workflow-activity-header">
+<div>
+<span class="section-label" data-i18n="auto_agent_activity_36">AGENT ACTIVITY</span>
+<strong id="workflow-activity-title">Deep research</strong>
+</div>
+<span class="workflow-status" data-i18n="auto_queued_37" id="workflow-activity-status">Queued</span>
+</summary>
+<p class="workflow-current-action" data-i18n="auto_preparing_the_workfl_38" id="workflow-activity-action">Preparing the workflowÔÇª</p>
+<ol class="workflow-step-list" id="workflow-activity-steps"></ol>
+<div class="workflow-steering-controls" hidden="" id="workflow-steering-controls">
+<label class="sr-only" data-i18n="auto_steer_this_research_39" for="workflow-steering-input">Steer this research</label>
+<input class="param-select" id="workflow-steering-input" maxlength="2000" placeholder="Add direction for the next safe step"/>
+<button class="action-sm-btn" data-i18n="auto_steer_40" id="workflow-steering-btn" type="button">Steer</button>
+<button class="workflow-stop-btn" data-i18n="auto_stop_41" id="workflow-stop-btn" type="button">Stop</button>
+</div>
+<p class="workflow-control-note" data-i18n="auto_actions_are_shown_at_42" hidden="" id="workflow-control-note">Actions are shown at safe workflow boundaries; internal reasoning is not exposed.</p>
+</details>
+<!-- Live Vision Container (Hidden by default) -->
+<div class="live-vision-container" id="live-vision-container" style="display: none;">
+<div class="live-vision-header">
+<span class="pulse-indicator" id="live-status-indicator"></span>
+<span data-i18n="auto_live_mode_initializi_43" id="live-status-text">Live Mode: Initializing...</span>
+</div>
+<video autoplay="" id="webcam-feed" muted="" playsinline=""></video>
+<canvas id="webcam-canvas" style="display: none;"></canvas>
+</div>
+<!-- Chat Input -->
+<div class="chat-input-area right-capsule-bar">
+<div aria-live="polite" class="manager-prompt-queue" hidden="" id="manager-prompt-queue"></div>
+<div class="attached-image-container" hidden id="attached-image-container">
+<img alt="Attached image preview" class="attached-img-thumb" id="attached-image-preview"/>
+<div class="attached-img-info">
+<span>Image attached</span>
+<button aria-label="Remove attached image" class="remove-img-btn" id="remove-attached-image-btn" type="button">Remove</button>
+</div>
+</div>
+<input accept="image/png,image/jpeg,image/webp,image/gif" hidden id="chat-image-input" type="file"/>
+<form class="chat-form capsule-form" id="chat-form">
+<textarea aria-label="Message your AI Board Member" id="chat-input" placeholder="Ask your AI Board MemberÔÇª" rows="1"></textarea>
+<div class="capsule-tools">
+<details class="composer-actions">
+<summary class="capsule-secondary-btn composer-actions-toggle" title="More chat actions">^</summary>
+<div class="composer-actions-menu">
+<label class="deep-research-mode-toggle" for="deep-research-mode">
+<input id="deep-research-mode" type="checkbox"/>
+<span data-i18n="auto_deep_research_44">Deep research</span>
+</label>
+<button class="capsule-secondary-btn" id="btn-attach-image" title="Attach an image" type="button">Attach image</button>
+<button class="capsule-secondary-btn" data-i18n="auto_upload_45" id="btn-upload-doc" title="Upload Document to Vault" type="button">Upload</button>
+<button class="capsule-secondary-btn" data-i18n="auto_save_to_vault_46" id="btn-save-meeting" title="Save meeting transcript to Vault" type="button">Save to Vault</button>
+<button class="capsule-secondary-btn" data-i18n="auto_go_live_47" id="btn-go-live" title="Toggle Voice &amp; Vision Live Mode" type="button">Go Live</button>
+</div>
+</details>
+<button class="capsule-send-btn" id="send-btn" type="submit">ÔåÁ</button>
+</div>
+</form>
+</div>
+</section>
+<!-- COLUMN 3: User-owned ChatGPT-style conversation history -->
+<aside aria-label="Chat sessions" class="chat-session-sidebar">
+<div class="sidebar-section-header chat-session-header">
+<div>
+<span class="section-label" data-i18n="auto_chat_sessions_48">CHAT SESSIONS</span>
+<span class="chat-session-project-label" data-i18n="auto_all_conversations_49" id="chat-session-project-label">All conversations</span>
+</div>
+<button class="chip-btn btn-sm" data-i18n="auto_new_50" id="new-chat-session-btn" title="Start a fresh conversation" type="button">+ New</button>
+</div>
+<p class="chat-session-help" data-i18n="auto_project_and_file_sel_51">Project and file selections add AI Board Member context without switching the active conversation.</p>
+<div aria-live="polite" class="chat-session-list" id="chat-session-list">
+<p class="chat-session-empty" data-i18n="auto_loading_conversation_52">Loading conversationsÔÇª</p>
+</div>
+<div class="chat-session-footer" data-i18n="auto_sessions_stay_with_t_53">Sessions stay with the signed-in user while knowledge scope changes.</div>
+</aside>
+</main>
+</div>
+<!-- PAGE VIEW: Supervisor-facing MVP product mock -->
+<div class="page-view" id="view-mvp-showcase" style="display: none;">
+<section class="mvp-showcase-page">
+<header class="mvp-showcase-hero">
+<div class="mvp-hero-copy">
+<div class="mvp-eyebrow-row">
+<span class="mvp-demo-badge" data-i18n="auto_illustrative_prototy_54">ILLUSTRATIVE PROTOTYPE</span>
+<span class="mvp-scenario-label" data-i18n="auto_forest_bioeconomy_20_55">Forest Bioeconomy 2027 scenario</span>
+</div>
+<h2 data-i18n="auto_from_market_signals__56">From market signals to regional impact</h2>
+<p data-i18n="auto_one_decision_workspa_57">One decision workspace that discovers opportunities, prioritizes proposals, turns meetings into action, and follows the outcomes that matter.</p>
+</div>
+<div class="mvp-hero-actions">
+<span class="mvp-demo-status" data-i18n="auto_mock_data_ready_58" id="mvp-demo-status">Mock data ready</span>
+<div class="mvp-hero-button-row">
+<button class="save-btn" data-i18n="auto_run_demo_scan_59" id="mvp-run-demo-btn" type="button">Run demo scan</button>
+</div>
+</div>
+</header>
+<nav aria-label="MVP showcase views" class="mvp-local-tabs">
+<button class="mvp-local-tab active" data-i18n="auto_executive_view_60" id="mvp-overview-tab" type="button">Executive view</button>
+<button class="mvp-local-tab" data-i18n="auto_configure_ai_context_61" id="mvp-config-tab" type="button">Configure AI context</button>
+<button class="mvp-local-tab" data-i18n="auto_how_it_connects_62" id="mvp-connect-tab" type="button">How it connects</button>
+</nav>
+<div id="mvp-overview-panel">
+<section aria-label="Strategic intelligence workflow" class="mvp-flow-strip">
+<div class="mvp-flow-step"><span>01</span><strong>Monitor</strong><small>Feeds, alerts and strategies</small></div>
+<div class="mvp-flow-arrow">-&gt;</div>
+<div class="mvp-flow-step"><span>02</span><strong>Identify</strong><small>Business, RDI and partner leads</small></div>
+<div class="mvp-flow-arrow">-&gt;</div>
+<div class="mvp-flow-step"><span>03</span><strong>Prioritize</strong><small>Evidence-based scorecards</small></div>
+<div class="mvp-flow-arrow">-&gt;</div>
+<div class="mvp-flow-step"><span>04</span><strong>Act &amp; measure</strong><small>Actions, owners and outcomes</small></div>
+</section>
+<section aria-label="Illustrative ecosystem outcomes" class="mvp-kpi-grid">
+<article class="mvp-kpi-card"><span data-i18n="auto_job_creation_pipelin_63">Job creation pipeline</span><strong>168</strong><small>of 420 target jobs</small><div class="mvp-progress"><i style="width:40%"></i></div></article>
+<article class="mvp-kpi-card"><span data-i18n="auto_investment_pipeline_64">Investment pipeline</span><strong>EUR 84M</strong><small>12 qualified leads</small><div class="mvp-progress"><i style="width:64%"></i></div></article>
+<article class="mvp-kpi-card"><span data-i18n="auto_startup_scaling_65">Startup scaling</span><strong>4</strong><small>Susicorns in acceleration</small><div class="mvp-progress"><i style="width:72%"></i></div></article>
+<article class="mvp-kpi-card"><span data-i18n="auto_rdi_funding_pipeline_66">RDI funding pipeline</span><strong>EUR 12.6M</strong><small>6 active calls</small><div class="mvp-progress"><i style="width:56%"></i></div></article>
+</section>
+<div class="mvp-primary-grid">
+<article class="mvp-showcase-panel mvp-radar-panel">
+<div class="mvp-panel-heading"><div><span class="mvp-section-kicker" data-i18n="auto_operating_environmen_67">OPERATING ENVIRONMENT</span><h3 data-i18n="auto_intelligence_radar_68">Intelligence radar</h3></div><span class="mvp-live-pill"><i></i> 18 new signals</span></div>
+<div class="mvp-signal-list">
+<div class="mvp-signal-card featured">
+<div class="mvp-signal-top"><span class="mvp-source-pill" data-i18n="auto_eu_funding_portal_69">EU Funding Portal</span><span data-i18n="auto_2h_ago_70">2h ago</span></div>
+<h4 data-i18n="auto_eur_35m_circular_bio_71">EUR 35M circular bio-based materials call opens</h4>
+<p data-i18n="auto_strong_match_with_re_72">Strong match with regional wood-fibre expertise and the 2027 RDI funding target.</p>
+<div class="mvp-signal-footer"><span data-i18n="auto_relevance_94_73">Relevance 94%</span><button class="mvp-text-action" data-i18n="auto_promote_to_opportuni_74" type="button">Promote to opportunity</button></div>
+</div>
+<div class="mvp-signal-card">
+<div class="mvp-signal-top"><span class="mvp-source-pill" data-i18n="auto_nordic_investment_ne_75">Nordic Investment News</span><span data-i18n="auto_5h_ago_76">5h ago</span></div>
+<h4 data-i18n="auto_growth_fund_seeks_in_77">Growth fund seeks industrial decarbonization ventures</h4>
+<p data-i18n="auto_potential_capital_pa_78">Potential capital partner for two companies currently in the regional scale-up programme.</p>
+<div class="mvp-signal-footer"><span data-i18n="auto_relevance_88_79">Relevance 88%</span><button class="mvp-text-action" data-i18n="auto_review_signal_80" type="button">Review signal</button></div>
+</div>
+<div class="mvp-signal-card compact"><div><span class="mvp-source-pill" data-i18n="auto_google_alert_81">Google Alert</span><h4 data-i18n="auto_delegation_planning__82">Delegation planning sustainable construction visit to Finland</h4></div><span class="mvp-score-ring">82</span></div>
+</div>
+</article>
+<article class="mvp-showcase-panel mvp-opportunity-panel">
+<div class="mvp-panel-heading"><div><span class="mvp-section-kicker" data-i18n="auto_opportunity_identifi_83">OPPORTUNITY IDENTIFICATION</span><h3 data-i18n="auto_opportunity_pipeline_84">Opportunity pipeline</h3></div><button class="chip-btn btn-sm" data-i18n="auto_view_all_12_85" type="button">View all 12</button></div>
+<div class="mvp-pipeline">
+<div class="mvp-pipeline-column">
+<div class="mvp-column-title"><span data-i18n="auto_detected_86">Detected</span><b>4</b></div>
+<article class="mvp-opportunity-card"><span class="mvp-opportunity-type" data-i18n="auto_rdi_funding_87">RDI FUNDING</span><h4 data-i18n="auto_circular_bio_based_m_88">Circular Bio-based Materials Call</h4><p data-i18n="auto_deadline_18_nov_2026_89">Deadline 18 Nov 2026</p><footer><span data-i18n="auto_eur_3_5m_90">EUR 3-5M</span><span data-i18n="auto_94_fit_91">94% fit</span></footer></article>
+<article class="mvp-opportunity-card"><span class="mvp-opportunity-type" data-i18n="auto_collaboration_92">COLLABORATION</span><h4 data-i18n="auto_german_timber_constr_93">German Timber Construction Delegation</h4><p data-i18n="auto_partner_discovery_94">Partner discovery</p><footer><span data-i18n="auto_25_jobs_95">25 jobs</span><span data-i18n="auto_82_fit_96">82% fit</span></footer></article>
+</div>
+<div class="mvp-pipeline-column">
+<div class="mvp-column-title"><span data-i18n="auto_qualifying_97">Qualifying</span><b>3</b></div>
+<article class="mvp-opportunity-card emphasis"><span class="mvp-opportunity-type" data-i18n="auto_invest_in_98">INVEST-IN</span><h4 data-i18n="auto_fibre_packaging_scal_99">Fibre Packaging Scale-up Site</h4><p data-i18n="auto_owner_elina_k_100">Owner: Elina K.</p><footer><span data-i18n="auto_eur_28m_101">EUR 28M</span><span data-i18n="auto_65_jobs_102">65 jobs</span></footer></article>
+</div>
+<div class="mvp-pipeline-column">
+<div class="mvp-column-title"><span data-i18n="auto_board_review_103">Board review</span><b>2</b></div>
+<article class="mvp-opportunity-card"><span class="mvp-opportunity-type" data-i18n="auto_startup_104">STARTUP</span><h4 data-i18n="auto_biochar_analytics_se_105">Biochar Analytics Seed Round</h4><p data-i18n="auto_decision_due_friday_106">Decision due Friday</p><footer><span data-i18n="auto_eur_1_8m_107">EUR 1.8M</span><span data-i18n="auto_12_jobs_108">12 jobs</span></footer></article>
+</div>
+</div>
+</article>
+</div>
+<div class="mvp-secondary-grid">
+<article class="mvp-showcase-panel">
+<div class="mvp-panel-heading"><div><span class="mvp-section-kicker" data-i18n="auto_idea_prioritization_109">IDEA PRIORITIZATION</span><h3 data-i18n="auto_proposal_scorecard_110">Proposal scorecard</h3></div><span class="mvp-total-score">8.3 / 10</span></div>
+<div class="mvp-proposal-title"><div><strong>Circular Wood Fibre Scale-up Hub</strong><span data-i18n="auto_recommended_for_boar_111">Recommended for board review</span></div><span class="mvp-recommend-pill" data-i18n="auto_advance_112">ADVANCE</span></div>
+<div class="mvp-score-list">
+<div><span data-i18n="auto_strategic_fit_113">Strategic fit</span><i><b style="width:92%"></b></i><strong>9.2</strong></div>
+<div><span data-i18n="auto_regional_impact_114">Regional impact</span><i><b style="width:88%"></b></i><strong>8.8</strong></div>
+<div><span data-i18n="auto_feasibility_115">Feasibility</span><i><b style="width:71%"></b></i><strong>7.1</strong></div>
+<div><span data-i18n="auto_scalability_116">Scalability</span><i><b style="width:84%"></b></i><strong>8.4</strong></div>
+</div>
+<div class="mvp-evidence-note"><strong>Why it ranks first</strong><p data-i18n="auto_high_alignment_with__117">High alignment with three regional strategies, credible industry partners, and an estimated 45 direct jobs. Main risk: pilot facility co-financing.</p></div>
+</article>
+<article class="mvp-showcase-panel">
+<div class="mvp-panel-heading"><div><span class="mvp-section-kicker" data-i18n="auto_meeting_workshop_sup_118">MEETING &amp; WORKSHOP SUPPORT</span><h3 data-i18n="auto_meeting_to_action_co_119">Meeting-to-action copilot</h3></div><span class="mvp-meeting-date" data-i18n="auto_executive_workshop_t_120">Executive workshop ┬À Today</span></div>
+<div class="mvp-meeting-summary"><span data-i18n="auto_ai_summary_121">AI SUMMARY</span><p data-i18n="auto_the_group_aligned_on_122">The group aligned on the fibre hub as the lead proposal and requested a financing package before the next board meeting.</p></div>
+<div class="mvp-action-list">
+<div><span class="mvp-check">Ô£ô</span><div><strong>Confirm university pilot capacity</strong><small>Owner: Antti ┬À Due 7 Aug</small></div><span class="mvp-action-status" data-i18n="auto_in_progress_123">In progress</span></div>
+<div><span class="mvp-check">Ô£ô</span><div><strong>Draft Invest-In financing package</strong><small>Owner: Elina ┬À Due 12 Aug</small></div><span class="mvp-action-status" data-i18n="auto_assigned_124">Assigned</span></div>
+<div><span class="mvp-theme-icon">#</span><div><strong>Recurring theme</strong><small>Industrial pilot infrastructure appeared in 3 meetings</small></div><span class="mvp-action-status neutral" data-i18n="auto_insight_125">Insight</span></div>
+</div>
+<button class="mvp-agenda-button" type="button">Preview next meeting agenda <span>-&gt;</span></button>
+</article>
+</div>
+<section class="mvp-roadmap-strip">
+<div><span data-i18n="auto_showcase_now_126">SHOWCASE NOW</span><strong>Illustrative decision workspace</strong><small>Static scenario, clear product story</small></div><i></i>
+<div><span data-i18n="auto_next_127">NEXT</span><strong>Connect existing agents and SQLite</strong><small>Reuse current research, scoring and meeting capabilities</small></div><i></i>
+<div><span data-i18n="auto_later_128">LATER</span><strong>Standalone Windows + Linux app</strong><small>Automated feeds, real KPI sources, packaged runtime</small></div>
+</section>
+</div>
+<div id="mvp-config-panel" style="display: none;">
+<div class="mvp-config-grid">
+<section class="mvp-showcase-panel mvp-context-form">
+<div class="mvp-panel-heading"><div><span class="mvp-section-kicker" data-i18n="auto_future_configuration_129">FUTURE CONFIGURATION PAGE</span><h3 data-i18n="auto_strategic_ai_context_130">Strategic AI context</h3></div><span class="mvp-demo-badge subtle" data-i18n="auto_ui_mock_131">UI MOCK</span></div>
+<p class="mvp-config-intro" data-i18n="auto_supervisors_define_t_132">Supervisors define the business meaning. The system assembles only the relevant context before an agent starts.</p>
+<label data-i18n="auto_primary_goal_133" for="mvp-context-goal">Primary goal</label><textarea id="mvp-context-goal" rows="3">Double regional forest bioeconomy value-add and open pathways to 420 private-sector jobs.</textarea>
+<div class="mvp-form-row">
+<label>Region<input id="mvp-context-region" type="text" value="Joensuu &amp; North Karelia"/></label>
+<label>Target date<input id="mvp-context-deadline" type="date" value="2027-12-31"/></label>
+</div>
+<label data-i18n="auto_current_focus_134" for="mvp-context-focus">Current focus</label><select id="mvp-context-focus"><option>Investment and RDI opportunities</option><option>Startup scaling</option><option>Workshop follow-up</option></select>
+<label data-i18n="auto_key_constraint_135" for="mvp-context-constraint">Key constraint</label><input id="mvp-context-constraint" type="text" value="Prioritize proposals with measurable regional employment impact"/>
+<div class="mvp-context-actions"><button class="save-btn" data-i18n="auto_build_context_previe_136" id="mvp-preview-context-btn" type="button">Build context preview</button><span data-i18n="auto_prototype_only_not_s_137" id="mvp-context-saved">Prototype only ┬À not saved</span></div>
+</section>
+<section class="mvp-showcase-panel mvp-context-preview-panel">
+<div class="mvp-panel-heading"><div><span class="mvp-section-kicker" data-i18n="auto_prompt_context_previ_138">PROMPT CONTEXT PREVIEW</span><h3 data-i18n="auto_what_the_agent_recei_139">What the agent receives</h3></div><span class="mvp-context-count" data-i18n="auto_6_context_blocks_140">6 context blocks</span></div>
+<div class="mvp-context-stack">
+<div><span>01</span><p><strong>Protected operating rules</strong><small>Evidence, citations, human decision authority</small></p><b>LOCKED</b></div>
+<div><span>02</span><p><strong>Project objective</strong><small id="mvp-preview-goal">Double regional forest bioeconomy value-add and open pathways to 420 private-sector jobs.</small></p><b>DYNAMIC</b></div>
+<div><span>03</span><p><strong>Region &amp; deadline</strong><small id="mvp-preview-region">Joensuu &amp; North Karelia ┬À target 31 Dec 2027</small></p><b>DYNAMIC</b></div>
+<div><span>04</span><p><strong>Relevant KPIs and rubric</strong><small>8 active KPIs ┬À 7 scoring criteria</small></p><b>SELECTED</b></div>
+<div><span>05</span><p><strong>Retrieved evidence</strong><small>Only sources relevant to the current task</small></p><b>RETRIEVED</b></div>
+<div><span>06</span><p><strong>User task and output format</strong><small id="mvp-preview-focus">Investment and RDI opportunities ┬À structured opportunity cards</small></p><b>RUNTIME</b></div>
+</div>
+<div class="mvp-context-result"><span data-i18n="auto_expected_result_141">Expected result</span><p data-i18n="auto_more_consistent_agen_142">More consistent agent decisions without hardwiring every client goal into source code.</p></div>
+</section>
+</div>
+<div class="mvp-config-bottom-grid">
+<section class="mvp-showcase-panel">
+<div class="mvp-panel-heading"><div><span class="mvp-section-kicker" data-i18n="auto_scoring_rubric_143">SCORING RUBRIC</span><h3 data-i18n="auto_adjustable_prioritie_144">Adjustable priorities</h3></div><span class="mvp-weight-total" data-i18n="auto_100_allocated_145" id="mvp-weight-total">100% allocated</span></div>
+<div class="mvp-weight-list">
+<label>Strategic fit <input class="mvp-weight-input" max="100" min="0" type="number" value="20"/><span>%</span></label>
+<label>Regional impact <input class="mvp-weight-input" max="100" min="0" type="number" value="20"/><span>%</span></label>
+<label>Feasibility <input class="mvp-weight-input" max="100" min="0" type="number" value="15"/><span>%</span></label>
+<label>Resource needs <input class="mvp-weight-input" max="100" min="0" type="number" value="10"/><span>%</span></label>
+<label>Risk level <input class="mvp-weight-input" max="100" min="0" type="number" value="10"/><span>%</span></label>
+<label>Scalability <input class="mvp-weight-input" max="100" min="0" type="number" value="10"/><span>%</span></label>
+<label>Jobs &amp; economic value <input class="mvp-weight-input" max="100" min="0" type="number" value="15"/><span>%</span></label>
+</div>
+</section>
+<section class="mvp-showcase-panel">
+<div class="mvp-panel-heading"><div><span class="mvp-section-kicker" data-i18n="auto_lean_kpi_set_146">LEAN KPI SET</span><h3 data-i18n="auto_eight_outcomes_one_v_147">Eight outcomes, one view</h3></div><span class="mvp-context-count" data-i18n="auto_8_9_active_148">8 / 9 active</span></div>
+<div class="mvp-kpi-chip-grid"><span data-i18n="auto_private_sector_jobs_149">Private-sector jobs</span><span data-i18n="auto_bioeconomy_value_add_150">Bioeconomy value-add</span><span data-i18n="auto_investment_pipeline_151">Investment pipeline</span><span data-i18n="auto_invest_in_cases_152">Invest-In cases</span><span data-i18n="auto_delegation_conversio_153">Delegation conversion</span><span data-i18n="auto_startup_scaling_154">Startup scaling</span><span data-i18n="auto_rdi_funding_155">RDI funding</span><span data-i18n="auto_opportunities_to_act_156">Opportunities to action</span></div>
+<p class="mvp-config-footnote" data-i18n="auto_in_the_working_produ_157">In the working product, each KPI can have a baseline, target, owner, period and evidence source.</p>
+</section>
+</div>
+</div>
+<div id="mvp-connect-panel" style="display: none;">
+<section class="mvp-connect-intro mvp-showcase-panel">
+<div>
+<span class="mvp-section-kicker" data-i18n="auto_from_mock_ui_to_work_158">FROM MOCK UI TO WORKING PRODUCT</span>
+<h3 data-i18n="auto_connect_the_screens__159">Connect the screens to foundations already in this app</h3>
+<p data-i18n="auto_the_mock_is_the_futu_160">The mock is the future user experience. Most AI capabilities already exist behind it; the next step is to add structured data contracts and connect each screen to the appropriate agent, workflow and SQLite record.</p>
+</div>
+<div aria-label="Connection status legend" class="mvp-connect-legend">
+<span><i class="shown"></i>Shown in mock</span>
+<span><i class="exists"></i>Foundation exists</span>
+<span><i class="future"></i>Future connection</span>
+</div>
+</section>
+<section class="mvp-architecture-panel mvp-showcase-panel">
+<div class="mvp-panel-heading">
+<div><span class="mvp-section-kicker" data-i18n="auto_end_to_end_flow_161">END-TO-END FLOW</span><h3 data-i18n="auto_how_information_move_162">How information moves through the future system</h3></div>
+<span class="mvp-demo-badge subtle" data-i18n="auto_modular_monolith_163">MODULAR MONOLITH</span>
+</div>
+<div aria-label="Future system information flow" class="mvp-architecture-flow">
+<article><span>01</span><b>Inputs</b><small>RSS, Google Alerts, strategy files, proposals, transcripts</small><em>NEW ADAPTERS</em></article>
+<i>-&gt;</i>
+<article><span>02</span><b>Context compiler</b><small>Select goals, constraints, rubric, KPIs and relevant evidence</small><em>LIGHT NEW SERVICE</em></article>
+<i>-&gt;</i>
+<article><span>03</span><b>Existing agents</b><small>Foresight, Idea Scorer, Meeting Notes, Susicorn and Manager</small><em>ALREADY EXISTS</em></article>
+<i>-&gt;</i>
+<article><span>04</span><b>Structured results</b><small>Validate signals, opportunities, scores, actions and KPI updates</small><em>NEW SCHEMAS</em></article>
+<i>-&gt;</i>
+<article><span>05</span><b>SQLite workspace</b><small>Persist review state, owners, deadlines, evidence and history</small><em>EXTEND EXISTING DB</em></article>
+<i>-&gt;</i>
+<article><span>06</span><b>Showcase UI</b><small>Replace illustrative values with API data and human controls</small><em>WIRE THIS MOCK</em></article>
+</div>
+<div class="mvp-connection-principle"><strong>Key principle</strong><span data-i18n="auto_the_prompt_is_assemb_164">The prompt is assembled from saved business configuration at task time. The database remains the source of truth; the LLM analyzes and proposes, while application code validates and calculates.</span></div>
+</section>
+<section class="mvp-module-map">
+<article class="mvp-connect-card">
+<header><span class="mvp-connect-number">01</span><div><small>OPERATING ENVIRONMENT</small><h3 data-i18n="auto_intelligence_radar_165">Intelligence radar</h3></div><b class="mvp-status-mixed">PARTLY EXISTS</b></header>
+<div class="mvp-connect-columns">
+<div><span data-i18n="auto_what_the_mock_shows_166">What the mock shows</span><p data-i18n="auto_new_signals_sources__167">New signals, sources, timestamps, relevance scores and promotion into opportunities.</p></div>
+<div><span data-i18n="auto_foundation_already_h_168">Foundation already here</span><p data-i18n="auto_foresight_agent_deep_169">Foresight Agent, deep research, web scraper and the background task scheduler.</p></div>
+<div><span data-i18n="auto_connection_to_add_170">Connection to add</span><p>Feed registry + RSS polling -&gt; deduplication -&gt; <code>signals</code> records -&gt; Foresight analysis -&gt; radar API.</p></div>
+</div>
+<footer><code>foresight.py</code><code>autonomous_research.py</code><code>web_scraper.py</code></footer>
+</article>
+<article class="mvp-connect-card">
+<header><span class="mvp-connect-number">02</span><div><small>OPPORTUNITY IDENTIFICATION</small><h3 data-i18n="auto_opportunity_pipeline_171">Opportunity pipeline</h3></div><b class="mvp-status-future">NEEDS DATA MODEL</b></header>
+<div class="mvp-connect-columns">
+<div><span data-i18n="auto_what_the_mock_shows_172">What the mock shows</span><p data-i18n="auto_detected_qualifying__173">Detected, qualifying and board-review cards with value, job impact, confidence, owner and deadline.</p></div>
+<div><span data-i18n="auto_foundation_already_h_174">Foundation already here</span><p data-i18n="auto_foresight_recommenda_175">Foresight recommendations, Susicorn analysis, Manager delegation and the existing Kanban interaction pattern.</p></div>
+<div><span data-i18n="auto_connection_to_add_176">Connection to add</span><p>Validated opportunity extraction -&gt; <code>opportunities</code> table -&gt; review API -&gt; pipeline UI -&gt; optional Kanban task.</p></div>
+</div>
+<footer><code>susicorn.py</code><code>manager.py</code><code>kanban_tasks</code></footer>
+</article>
+<article class="mvp-connect-card">
+<header><span class="mvp-connect-number">03</span><div><small>IDEA PRIORITIZATION</small><h3 data-i18n="auto_proposal_scorecard_177">Proposal scorecard</h3></div><b class="mvp-status-exists">STRONG FOUNDATION</b></header>
+<div class="mvp-connect-columns">
+<div><span data-i18n="auto_what_the_mock_shows_178">What the mock shows</span><p data-i18n="auto_a_comparable_total_s_179">A comparable total score, criterion bars, recommendation, evidence and major risk.</p></div>
+<div><span data-i18n="auto_foundation_already_h_180">Foundation already here</span><p data-i18n="auto_idea_scorer_agent_al_181">Idea Scorer Agent already evaluates jobs, strategic alignment, feasibility and startup potential.</p></div>
+<div><span data-i18n="auto_connection_to_add_182">Connection to add</span><p data-i18n="auto_dynamic_rubric_versi_183">Dynamic rubric version -&gt; Idea Scorer JSON -&gt; validation -&gt; code-calculated weighted total -&gt; saved scorecard.</p></div>
+</div>
+<footer><code>idea_scorer.py</code><code>project_rubrics</code><code>proposal_scores</code></footer>
+</article>
+<article class="mvp-connect-card">
+<header><span class="mvp-connect-number">04</span><div><small>MEETING SUPPORT</small><h3 data-i18n="auto_meeting_to_action_co_184">Meeting-to-action copilot</h3></div><b class="mvp-status-exists">STRONG FOUNDATION</b></header>
+<div class="mvp-connect-columns">
+<div><span data-i18n="auto_what_the_mock_shows_185">What the mock shows</span><p data-i18n="auto_summary_assigned_act_186">Summary, assigned actions, deadlines, recurring themes and the next agenda.</p></div>
+<div><span data-i18n="auto_foundation_already_h_187">Foundation already here</span><p data-i18n="auto_meeting_notes_agent__188">Meeting Notes Agent processes transcripts, produces these sections and stores meeting documents.</p></div>
+<div><span data-i18n="auto_connection_to_add_189">Connection to add</span><p>Transcript input -&gt; structured meeting result -&gt; <code>actions</code> and <code>themes</code> -&gt; approval -&gt; task board.</p></div>
+</div>
+<footer><code>meeting_notes.py</code><code>documents</code><code>kanban_tasks</code></footer>
+</article>
+<article class="mvp-connect-card">
+<header><span class="mvp-connect-number">05</span><div><small>STRATEGIC CONFIGURATION</small><h3 data-i18n="auto_ai_context_builder_190">AI context builder</h3></div><b class="mvp-status-future">LIGHT NEW LAYER</b></header>
+<div class="mvp-connect-columns">
+<div><span data-i18n="auto_what_the_mock_shows_191">What the mock shows</span><p data-i18n="auto_goals_region_target__192">Goals, region, target date, constraints, KPI selection, scoring weights and context preview.</p></div>
+<div><span data-i18n="auto_foundation_already_h_193">Foundation already here</span><p data-i18n="auto_project_workspaces_a_194">Project workspaces, agent profiles, notebook boundaries and prompt compilation already exist.</p></div>
+<div><span data-i18n="auto_connection_to_add_195">Connection to add</span><p data-i18n="auto_save_project_setting_196">Save project settings -&gt; select task-relevant context -&gt; compile versioned prompt -&gt; record configuration snapshot per run.</p></div>
+</div>
+<footer><code>framework.py</code><code>god_mode.py</code><code>notebooks</code></footer>
+</article>
+<article class="mvp-connect-card">
+<header><span class="mvp-connect-number">06</span><div><small>OUTCOME MEASUREMENT</small><h3 data-i18n="auto_strategic_kpi_view_197">Strategic KPI view</h3></div><b class="mvp-status-future">NEEDS DATA MODEL</b></header>
+<div class="mvp-connect-columns">
+<div><span data-i18n="auto_what_the_mock_shows_198">What the mock shows</span><p data-i18n="auto_four_executive_cards_199">Four executive cards backed by a lean set of eight strategic ecosystem KPIs.</p></div>
+<div><span data-i18n="auto_foundation_already_h_200">Foundation already here</span><p data-i18n="auto_dashboard_components_201">Dashboard components, SQLite storage and API usage metrics demonstrate the display and persistence pattern.</p></div>
+<div><span data-i18n="auto_connection_to_add_202">Connection to add</span><p data-i18n="auto_kpi_definitions_manu_203">KPI definitions + manual/imported observations -&gt; deterministic calculations -&gt; history API -&gt; replace mock values.</p></div>
+</div>
+<footer><code>local_manager.py</code><code>kpi_definitions</code><code>kpi_observations</code></footer>
+</article>
+</section>
+<div class="mvp-connect-bottom-grid">
+<section class="mvp-showcase-panel">
+<div class="mvp-panel-heading"><div><span class="mvp-section-kicker" data-i18n="auto_minimum_data_contrac_204">MINIMUM DATA CONTRACTS</span><h3 data-i18n="auto_small_records_that_m_205">Small records that make the mock real</h3></div></div>
+<div class="mvp-contract-table-wrap">
+<table class="mvp-contract-table">
+<thead><tr><th>Record</th><th>Essential fields</th><th>Created by</th></tr></thead>
+<tbody>
+<tr><td>Project context</td><td>goal, region, deadline, constraints, active rubric/KPIs</td><td>Supervisor</td></tr>
+<tr><td>Signal</td><td>source, URL, date, summary, relevance, evidence</td><td>Feed + Foresight</td></tr>
+<tr><td>Opportunity</td><td>type, value, jobs, deadline, confidence, owner, stage</td><td>Agent + reviewer</td></tr>
+<tr><td>Scorecard</td><td>rubric version, criterion scores, evidence, total, override</td><td>Idea Scorer + code</td></tr>
+<tr><td>Meeting action</td><td>meeting, task, owner, due date, status, source text</td><td>Meeting Agent + reviewer</td></tr>
+<tr><td>KPI observation</td><td>KPI, period, value, state, source, evidence</td><td>User/import/workflow</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+<section class="mvp-showcase-panel">
+<div class="mvp-panel-heading"><div><span class="mvp-section-kicker" data-i18n="auto_delivery_path_206">DELIVERY PATH</span><h3 data-i18n="auto_build_outward_from_t_207">Build outward from this showcase</h3></div></div>
+<ol class="mvp-delivery-path">
+<li><span data-i18n="auto_now_208">NOW</span><div><strong>Validate the product story</strong><p data-i18n="auto_use_this_mock_with_t_209">Use this mock with the supervisor. Confirm screens, terminology, KPIs and decisions before backend work.</p></div></li>
+<li><span data-i18n="auto_next_210">NEXT</span><div><strong>Connect one vertical slice</strong><p data-i18n="auto_make_configuration_p_211">Make configuration + proposal scoring real first: save context, call Idea Scorer, validate JSON and display the result.</p></div></li>
+<li><span data-i18n="auto_then_212">THEN</span><div><strong>Connect meetings and opportunities</strong><p data-i18n="auto_persist_structured_a_213">Persist structured actions and opportunity cards, reusing the task board and existing agents.</p></div></li>
+<li><span data-i18n="auto_later_214">LATER</span><div><strong>Automate inputs and packaging</strong><p data-i18n="auto_add_rss_alerts_polli_215">Add RSS/Alerts polling, real KPI imports, then package the stable app for Windows and Linux.</p></div></li>
+</ol>
+</section>
+</div>
+</div>
+</section>
+</div>
+<!-- PAGE VIEW 2: Dedicated Agent Customization Studio Page -->
+<div class="page-view" id="view-customization" style="display: none;">
+<div class="customization-layout">
+<!-- Customization Header Banner -->
+<div class="customization-header-banner">
+<div>
+<h2 data-i18n="auto_agent_runtime_provid_216">ÔÜÖ´©Å Agent Runtime &amp; Provider Studio</h2>
+<p data-i18n="auto_configure_agent_mode_217">Configure agent models, temperature, and output limits. Azure is operational today; the registry below is ready to model and prepare future providers without exposing untested routing.</p>
+</div>
+<div class="engine-badge glow-purple">
+<span data-i18n="auto_embedded_sqlite_conn_218" id="prompt-stream-badge" style="color: #4ade80;">­ƒƒó Embedded SQLite Connected</span>
+</div>
+</div>
+<div class="customization-grid">
+<!-- Panel 1: API Usage Monitor (New) -->
+<div class="custom-panel wide-panel">
+<div class="panel-header flex-between">
+<div>
+<h3 data-i18n="auto_api_usage_dashboard_228">API Usage Dashboard</h3>
+<span class="subtext" data-i18n="auto_track_token_consumpt_229">Track token consumption and estimated cost across all LLM providers</span>
+</div>
+<button class="chip-btn" data-i18n="auto_refresh_usage_230" id="refresh-usage-btn" type="button">Refresh Usage</button>
+</div>
+<div class="usage-dashboard-grid">
+<div class="stat-card">
+<span class="stat-label" data-i18n="auto_total_requests_231">Total Requests</span>
+<span class="stat-value" id="usage-requests">0</span>
+</div>
+<div class="stat-card">
+<span class="stat-label" data-i18n="auto_prompt_tokens_232">Prompt Tokens</span>
+<span class="stat-value" id="usage-prompt-tokens">0</span>
+</div>
+<div class="stat-card">
+<span class="stat-label" data-i18n="auto_completion_tokens_233">Completion Tokens</span>
+<span class="stat-value" id="usage-completion-tokens">0</span>
+</div>
+<div class="stat-card">
+<span class="stat-label" data-i18n="auto_est_cost_usd_234">Est. Cost (USD)</span>
+<span class="stat-value highlight-green" id="usage-cost">$0.00</span>
+</div>
+</div>
+<div class="provider-breakdown-section">
+<h4 class="provider-breakdown-title" data-i18n="auto_provider_breakdown_235">Provider Breakdown</h4>
+<table class="doc-table" id="usage-provider-table">
+<thead>
+<tr>
+<th>Provider</th>
+<th>Requests</th>
+<th>Prompt Tkns</th>
+<th>Completion Tkns</th>
+<th>Est. Cost</th>
+</tr>
+</thead>
+<tbody id="usage-provider-body">
+<tr><td class="placeholder-rag" colspan="5">No usage data yet.</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Panel 2: Provider Registry -->
+<div class="custom-panel wide-panel">
+<div class="panel-header flex-between">
+<div>
+<h3 data-i18n="auto_provider_registry_236">Provider Registry</h3>
+<span class="subtext" data-i18n="auto_a_setup_board_operat_237">A setup board: operational providers are selectable; drafts are safe blueprints for installation.</span>
+</div>
+<div class="provider-registry-actions">
+<span class="subtext" data-i18n="auto_loading_providers_238" id="provider-registry-summary">Loading providers...</span>
+<button class="save-btn btn-sm" data-i18n="auto_add_provider_239" id="add-provider-draft-btn" type="button">Add provider</button>
+</div>
+</div>
+<div aria-live="polite" class="provider-registry-grid" id="provider-registry-grid"></div>
+</div>
+<!-- Panel 3: Agent Customization -->
+<div class="custom-panel wide-panel">
+<div class="panel-header flex-between">
+<div>
+<h3 data-i18n="auto_agent_identity_model_240">Agent Identity &amp; Model Settings</h3>
+<span class="subtext" data-i18n="auto_choose_any_operation_241">Choose any operational provider, then tune this agent's model, temperature, output budget, role, and persona.</span>
+</div>
+<div class="agent-selector-group">
+<label class="form-label highlight-purple agent-target-label" data-i18n="auto_target_agent_242" for="habitat-agent-select">Target Agent:</label>
+<select class="param-select" id="habitat-agent-select">
+<option selected="" value="ManagerAgent">AI Board Member Agent</option>
+<option value="FinancialAdvisorAgent">Financial Advisor</option>
+<option value="MeetingNotesAgent">Meeting Secretary</option>
+<option value="ForesightAgent">Foresight Radar</option>
+<option value="IdeaScorerAgent">Impact Evaluator</option>
+<option value="SusicornAgent">Susicorn Accelerator</option>
+</select>
+</div>
+</div>
+<div class="agent-runtime-grid">
+<div>
+<label class="form-label highlight-purple" data-i18n="auto_target_llm_provider_243" for="habitat-provider-select">Target LLM Provider:</label>
+<select class="param-select full-width" id="habitat-provider-select">
+<option value="azure">Azure OpenAI</option>
+</select>
+</div>
+<div>
+<label class="form-label highlight-blue" data-i18n="auto_deployment_model_244" for="habitat-model-select">Deployment Model:</label>
+<select class="param-select full-width" id="habitat-model-select">
+<option selected="" value="mvp-gpt-54-mini">mvp-gpt-54-mini</option>
+</select>
+</div>
+<div>
+<label class="form-label highlight-amber" data-i18n="auto_temperature_245" for="habitat-temperature-input">Temperature:</label>
+<input class="param-select full-width" id="habitat-temperature-input" max="2" min="0" step="0.05" type="number" value="0.70"/>
+</div>
+<div>
+<label class="form-label highlight-green" data-i18n="auto_max_output_tokens_246" for="habitat-max-tokens-input">Max output tokens:</label>
+<input class="param-select full-width" id="habitat-max-tokens-input" max="16000" min="128" step="128" type="number" value="1500"/>
+</div>
+</div>
+<div style="margin-top: 15px;">
+<label class="form-label" data-i18n="auto_system_prompt_person_247" for="habitat-prompt-textarea">System Prompt Persona:</label>
+<textarea class="habitat-prompt-textarea" id="habitat-prompt-textarea" rows="8"></textarea>
+</div>
+<div class="flex-between save-actions-row" style="margin-top: 15px;">
+<button class="save-btn" data-i18n="auto_save_agent_profile_248" id="save-habitat-prompt-btn" type="button">Save Agent Profile</button>
+<span class="subtext" id="habitat-save-status" style="display: none;"></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- PAGE VIEW 3: Dedicated Database Studio -->
+<div class="page-view" id="view-ingestion" style="display: none;">
+<div class="db-studio-grid">
+<!-- Sidebar: Tables -->
+<aside class="left-sidebar">
+<div class="sidebar-section-header">
+<span class="section-label" data-i18n="auto_sqlite_tables_249">SQLITE TABLES</span>
+</div>
+<div class="notebook-list-section" data-i18n="auto_tables_injected_here_250" id="db-tables-list">
+<!-- Tables injected here -->
+</div>
+</aside>
+<!-- Main Data Grid -->
+<section class="center-chat-panel db-workspace">
+<div class="panel-header flex-between">
+<div>
+<h3 data-i18n="auto_select_a_table_251" id="db-current-table-title">Select a Table</h3>
+<span class="subtext" data-i18n="auto_developer_database_s_252">Developer Database Studio ┬À inspect and manage local data</span>
+</div>
+<div class="db-toolbar-actions">
+<button class="chip-btn" data-i18n="auto_refresh_253" id="db-refresh-btn" style="display:none;" type="button">Refresh</button>
+<button class="chip-btn" data-i18n="auto_new_row_254" id="db-add-row-btn" style="display:none;" type="button">New Row</button>
+</div>
+</div>
+<div class="db-table-wrapper">
+<table class="doc-table db-data-table" id="db-data-table" style="display: none;">
+<thead id="db-data-thead"></thead>
+<tbody id="db-data-tbody"></tbody>
+</table>
+<div data-i18n="auto_select_a_table_from__255" id="db-placeholder-msg" style="padding: 40px; text-align: center; color: var(--text-muted);">
               Select a table from the left sidebar to view its contents.
             </div>
-          </div>
-        </section>
-      </div>
-    </div>
-
-    <!-- PAGE VIEW 4: Dedicated Pixel Art Agent Office Habitat & Taskforce Center -->
-    <div id="view-habitat" class="page-view" style="display: none;">
-      <section class="habitat-full-page">
-        <div class="visual-header flex-between" style="margin-bottom: 10px;">
-          <div class="header-title">
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <h2>Pixel-Art Autonomous Agent Office</h2>
-              <span id="active-agent-count" class="status-pill-green">6 Agents Active</span>
-              <span class="status-pill-purple">WebSocket Live Telemetry</span>
-            </div>
-            <span class="subtext">Real-time visual monitoring of AI agent execution state across desks and breakroom lounge</span>
-          </div>
-          <button type="button" id="back-to-dashboard-btn" class="back-btn">← Back to Executive Boardroom</button>
-        </div>
-
-        <!-- Full Page Office Visualizer Canvas Container -->
-        <div class="canvas-container-full">
-          <div class="canvas-wrapper full-page-canvas">
-            <canvas id="robot-canvas"></canvas>
-          </div>
-        </div>
-      </section>
-    </div>
-
-
-    <!-- PAGE VIEW 5: Task Kanban Board -->
-    <div id="view-kanban" class="page-view" style="display: none;">
-      <div class="kanban-layout">
-        <div class="kanban-header-banner">
-          <div>
-            <h2>Agentic Task Kanban</h2>
-            <p>Add Board Member tasks to Pending, then move them to Running only when you approve execution.</p>
-          </div>
-          <button id="new-task-btn" class="save-btn" style="display: inline-flex; align-items: center; gap: 6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Add Board Task</button>
-        </div>
-        
-        <div class="kanban-board">
-          <div id="col-pending" class="kanban-column">
-            <div class="kanban-col-header">
-              <h3>Pending Approval</h3>
-              <span id="count-pending" class="col-count">0</span>
-            </div>
-            <div class="kanban-task-list" data-kanban-status="pending"></div>
-          </div>
-          
-          <div id="col-run" class="kanban-column">
-            <div class="kanban-col-header">
-              <h3>Running / Active</h3>
-              <span id="count-run" class="col-count">0</span>
-            </div>
-            <div class="kanban-task-list" data-kanban-status="run"></div>
-          </div>
-          
-          <div id="col-done" class="kanban-column">
-            <div class="kanban-col-header">
-              <h3>Completed</h3>
-              <span id="count-done" class="col-count">0</span>
-            </div>
-            <div class="kanban-task-list" data-kanban-status="done"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- PAGE VIEW 6: Agent Activity Log -->
-    <div id="view-agent-logs" class="page-view" style="display: none;">
-      <section class="agent-log-page">
-        <div class="agent-log-header">
-          <div>
-            <h2>Agent Activity Log</h2>
-            <p>Review autonomous work, outcomes, and the steps each agent took.</p>
-          </div>
-          <button id="refresh-agent-logs-btn" type="button" class="chip-btn">Refresh</button>
-        </div>
-        <p id="agent-logs-status" class="subtext" aria-live="polite">Loading activity…</p>
-        <div id="agent-logs-list" class="agent-logs-list"></div>
-      </section>
-    </div>
-
-    <!-- New Task Modal -->
-    <div id="new-task-modal" class="modal-overlay" style="display: none;">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h2 id="task-modal-title">Add Board Task</h2>
-          <p>Leave the time blank for manual approval, or schedule the AI Board Member to run it automatically at a specific time.</p>
-        </div>
-        <form id="new-task-form" class="custom-form">
-          <div class="input-group">
-            <label for="task-prompt">Board task / instructions</label>
-            <textarea id="task-prompt" rows="3" placeholder="e.g. Scrape the business Joensuu website and summarize the new grants." required></textarea>
-          </div>
-          <div class="input-group">
-            <label for="task-project-select">Project scope (optional)</label>
-            <select id="task-project-select">
-              <option value="">Forest Joensuu-wide task</option>
-            </select>
-          </div>
-          <div class="input-group">
-            <label for="task-time">Run automatically at (optional)</label>
-            <input type="datetime-local" id="task-time" />
-          </div>
-          <div class="modal-actions">
-            <button type="button" id="close-task-modal-btn" class="cancel-btn">Cancel</button>
-            <button id="task-modal-submit" type="submit" class="save-btn">Add to Pending</button>
-          </div>
-        </form>
-      </div>
-    </div>
-    
-    <!-- Task Archive / Version History -->
-    <div id="task-archive-modal" class="modal-overlay" style="display: none;">
-      <div class="modal-card task-archive-modal-card">
-        <div class="modal-header flex-between">
-          <div>
-            <h2 id="archive-task-title">Task archive</h2>
-            <p id="archive-task-meta"></p>
-          </div>
-          <button type="button" id="close-task-archive-btn" class="close-icon-btn" aria-label="Close archive">×</button>
-        </div>
-        <section class="archive-section">
-          <h3>Run result</h3>
-          <pre id="archive-task-result" class="archive-task-result"></pre>
-        </section>
-        <section class="archive-section">
-          <h3>Version history</h3>
-          <div id="archive-version-history" class="archive-version-history"></div>
-        </section>
-        <div class="modal-actions">
-          <span id="archive-task-status" class="subtext" aria-live="polite"></span>
-          <button type="button" id="rerun-archive-task-btn" class="save-btn">Run again as new version</button>
-        </div>
-      </div>
-    </div>
-
-  </div>
-
-  <script type="module" src="/src/main.ts"></script>
+</div>
+</section>
+</div>
+</div>
+<!-- PAGE VIEW 4: Dedicated Pixel Art Agent Office Habitat & Taskforce Center -->
+<div class="page-view" id="view-habitat" style="display: none;">
+<section class="habitat-full-page">
+<div class="visual-header flex-between" style="margin-bottom: 10px;">
+<div class="header-title">
+<div style="display: flex; align-items: center; gap: 12px;">
+<h2 data-i18n="auto_pixel_art_autonomous_256">Pixel-Art Autonomous Agent Office</h2>
+<span class="status-pill-green" data-i18n="auto_6_agents_active_257" id="active-agent-count">6 Agents Active</span>
+<span class="status-pill-purple" data-i18n="auto_websocket_live_telem_258">WebSocket Live Telemetry</span>
+</div>
+<span class="subtext" data-i18n="auto_real_time_visual_mon_259">Real-time visual monitoring of AI agent execution state across desks and breakroom lounge</span>
+</div>
+<button class="back-btn" data-i18n="auto_back_to_executive_bo_260" id="back-to-dashboard-btn" type="button">ÔåÉ Back to Executive Boardroom</button>
+</div>
+<!-- Full Page Office Visualizer Canvas Container -->
+<div class="canvas-container-full">
+<div class="canvas-wrapper full-page-canvas">
+<canvas id="robot-canvas"></canvas>
+</div>
+</div>
+</section>
+</div>
+<!-- PAGE VIEW 5: Task Kanban Board -->
+<div class="page-view" id="view-kanban" style="display: none;">
+<div class="kanban-layout">
+<div class="kanban-header-banner">
+<div>
+<h2 data-i18n="auto_agentic_task_kanban_261">Agentic Task Kanban</h2>
+<p data-i18n="auto_add_board_member_tas_262">Add Board Member tasks to Pending, then move them to Running only when you approve execution.</p>
+</div>
+<button class="save-btn" id="new-task-btn" style="display: inline-flex; align-items: center; gap: 6px;"><svg fill="none" height="15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" viewbox="0 0 24 24" width="15"><line x1="12" x2="12" y1="5" y2="19"></line><line x1="5" x2="19" y1="12" y2="12"></line></svg>Add Board Task</button>
+</div>
+<div class="kanban-board">
+<div class="kanban-column" id="col-pending">
+<div class="kanban-col-header">
+<h3 data-i18n="auto_pending_approval_263">Pending Approval</h3>
+<span class="col-count" id="count-pending">0</span>
+</div>
+<div class="kanban-task-list" data-kanban-status="pending"></div>
+</div>
+<div class="kanban-column" id="col-run">
+<div class="kanban-col-header">
+<h3 data-i18n="auto_running_active_264">Running / Active</h3>
+<span class="col-count" id="count-run">0</span>
+</div>
+<div class="kanban-task-list" data-kanban-status="run"></div>
+</div>
+<div class="kanban-column" id="col-done">
+<div class="kanban-col-header">
+<h3 data-i18n="auto_completed_265">Completed</h3>
+<span class="col-count" id="count-done">0</span>
+</div>
+<div class="kanban-task-list" data-kanban-status="done"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- PAGE VIEW 6: Agent Goal Control Center -->
+<div class="page-view" id="view-agentic-goals" style="display: none;">
+<section class="agentic-control-center">
+<header class="agentic-page-header">
+<div>
+<span class="agentic-eyebrow">BOUNDED AUTONOMY</span>
+<h2>Agent Work</h2>
+<p>Goals, chat requests, scheduled work and agent tasks now share one durable workspace and audit trail.</p>
+</div>
+<div class="agent-work-header-actions">
+<div class="agent-work-mode-switch"><button class="chip-btn active" id="agent-work-goals-mode" type="button">Goals</button><button class="chip-btn" id="agent-work-board-mode" type="button">Board</button></div>
+<button class="save-btn" id="new-agentic-goal-btn" type="button">New goal</button>
+</div>
+</header>
+<div class="agentic-layout" id="agent-work-goals-panel">
+<aside class="agentic-goal-sidebar">
+<div class="agentic-sidebar-heading">
+<strong>Goals</strong>
+<button class="chip-btn btn-sm" id="refresh-agentic-goals-btn" type="button">Refresh</button>
+</div>
+<p aria-live="polite" class="subtext" id="agentic-goals-status">Loading goalsÔÇª</p>
+<div class="agentic-goal-list" id="agentic-goal-list"></div>
+</aside>
+<main class="agentic-goal-detail" id="agentic-goal-detail">
+<div class="agentic-empty-detail">
+<span>ÔùÄ</span>
+<h3>Select a goal</h3>
+<p>Its plan, agents, evidence, approvals, limits, and audit trail will appear here.</p>
+</div>
+</main>
+</div>
+<div id="agent-work-board-panel" style="display:none;"></div>
+</section>
+</div>
+<!-- PAGE VIEW: External Sources and Signal Monitoring -->
+<div class="page-view" id="view-monitoring" style="display: none;">
+<section class="monitoring-page">
+<header class="monitoring-header">
+<div>
+<span class="agentic-eyebrow">EXTERNAL INTELLIGENCE</span>
+<h2>Sources &amp; Monitoring</h2>
+<p>Connect approved read-only feeds, match new signals to user and project interests, and turn relevant evidence into agent goals.</p>
+</div>
+<button class="save-btn" id="new-connector-btn" type="button">Connect RSS feed</button>
+</header>
+<div class="monitoring-grid">
+<aside class="monitoring-sources-panel">
+<div class="agentic-sidebar-heading"><strong>Connected sources</strong><button class="chip-btn btn-sm" id="refresh-connectors-btn" type="button">Refresh</button></div>
+<p aria-live="polite" class="subtext" id="connector-status">Loading connectorsÔÇª</p>
+<div class="connector-instance-list" id="connector-instance-list"></div>
+</aside>
+<main class="monitoring-signals-panel">
+<div class="monitoring-signals-toolbar">
+<div><h3>Relevant signals</h3><p class="subtext">Feed entries are sanitized, deduplicated and scored before agents can use them.</p></div>
+<label>Minimum relevance <select id="signal-minimum-score"><option value="0">All</option><option selected="" value="40">40+</option><option value="60">60+</option><option value="80">80+</option></select></label>
+</div>
+<p aria-live="polite" class="subtext" id="signal-status">Loading signalsÔÇª</p>
+<div class="signal-card-grid" id="signal-card-grid"></div>
+</main>
+</div>
+</section>
+</div>
+<!-- PAGE VIEW 7: Agent Activity Log -->
+<div class="page-view" id="view-agent-logs" style="display: none;">
+<section class="agent-log-page">
+<div class="agent-log-header">
+<div>
+<h2 data-i18n="auto_agent_activity_log_266">Agent Activity Log</h2>
+<p data-i18n="auto_review_autonomous_wo_267">Review autonomous work, outcomes, and the steps each agent took.</p>
+</div>
+<button class="chip-btn" data-i18n="auto_refresh_268" id="refresh-agent-logs-btn" type="button">Refresh</button>
+</div>
+<p aria-live="polite" class="subtext" data-i18n="auto_loading_activity_269" id="agent-logs-status">Loading activityÔÇª</p>
+<div class="agent-logs-list" id="agent-logs-list"></div>
+</section>
+</div>
+<!-- New Agent Goal Modal -->
+<div class="modal-overlay" id="connector-modal" style="display: none;">
+<div class="modal-card connector-modal-card">
+<div class="modal-header"><h2>Connect an RSS or Atom feed</h2><p>The feed is read-only. Entries remain inside the selected project boundary and are treated as untrusted evidence.</p></div>
+<form class="custom-form" id="connector-form">
+<div class="input-group"><label for="connector-name">Source name</label><input id="connector-name" maxlength="200" placeholder="e.g. EU Funding Portal" required="" type="text"/></div>
+<div class="input-group"><label for="connector-feed-url">Public feed URL</label><input id="connector-feed-url" placeholder="https://example.org/feed.xml" required="" type="url"/></div>
+<div class="input-group"><label for="connector-interest-query">What should this source monitor?</label><textarea id="connector-interest-query" maxlength="4000" placeholder="Forestry, circular economy, youth employment and EU funding in North Karelia" rows="3"></textarea></div>
+<div class="agentic-form-grid">
+<div class="input-group"><label for="connector-project">Project boundary</label><select id="connector-project"><option value="">The Company-wide</option></select></div>
+<div class="input-group"><label for="connector-poll-minutes">Check frequency</label><select id="connector-poll-minutes"><option value="15">Every 15 minutes</option><option selected="" value="60">Every hour</option><option value="360">Every 6 hours</option><option value="1440">Daily</option></select></div>
+</div>
+<div class="input-group"><label for="connector-minimum-relevance">Minimum relevance score: <output id="connector-minimum-output">40</output></label><input id="connector-minimum-relevance" max="100" min="0" type="range" value="40"/></div>
+<div class="agentic-safety-note"><strong>Safety boundary.</strong> Local/private network addresses, embedded credentials, scripts, oversized responses and XML entities are blocked.</div>
+<div class="modal-actions"><button class="cancel-btn" id="close-connector-modal-btn" type="button">Cancel</button><button class="save-btn" type="submit">Connect and sync</button></div>
+<span aria-live="polite" class="subtext" id="connector-form-status"></span>
+</form>
+</div>
+</div>
+<div class="modal-overlay" id="new-agentic-goal-modal" style="display: none;">
+<div class="modal-card agentic-goal-modal-card">
+<div class="modal-header">
+<h2>Create an autonomous goal</h2>
+<p>The first workflow is a project assessment: research, financial analysis, feasibility scoring, optional market foresight, and a verified board brief.</p>
+</div>
+<form class="custom-form" id="new-agentic-goal-form">
+<div class="input-group">
+<label for="agentic-goal-title">Goal name</label>
+<input id="agentic-goal-title" maxlength="200" placeholder="e.g. Aino investment assessment" required="" type="text"/>
+</div>
+<div class="input-group">
+<label for="agentic-goal-objective">Outcome you want</label>
+<textarea id="agentic-goal-objective" maxlength="8000" placeholder="Assess whether we should support this opportunity and prepare a decision-ready board brief." required="" rows="4"></textarea>
+</div>
+<div class="input-group">
+<label for="agentic-goal-criteria">Definition of done</label>
+<textarea id="agentic-goal-criteria" rows="3">Produce an evidence-grounded board brief with financial implications, feasibility, risks, unknowns, and recommended next steps.</textarea>
+</div>
+<div class="agentic-form-grid">
+<div class="input-group">
+<label for="agentic-goal-project">Project boundary</label>
+<select id="agentic-goal-project"><option value="">The Company-wide (no private project documents)</option></select>
+</div>
+<div class="input-group">
+<label for="agentic-goal-runtime">Runtime limit</label>
+<select id="agentic-goal-runtime"><option value="15">15 minutes</option><option selected="" value="30">30 minutes</option><option value="60">60 minutes</option></select>
+</div>
+</div>
+<label class="agentic-permission-toggle" for="agentic-goal-web">
+<input id="agentic-goal-web" type="checkbox"/>
+<span><strong>Allow public-web research</strong><small>Without this, agents use selected project documents and general reasoning only.</small></span>
+</label>
+<div class="agentic-safety-note"><strong>Human authority retained.</strong> This MVP can create internal reports and drafts. It cannot send, publish, purchase, or change an external system.</div>
+<div class="modal-actions">
+<span aria-live="polite" class="subtext" id="agentic-goal-form-status"></span>
+<button class="cancel-btn" id="close-agentic-goal-modal-btn" type="button">Cancel</button>
+<button class="save-btn" type="submit">Create and start</button>
+</div>
+</form>
+</div>
+</div>
+<!-- New Task Modal -->
+<div class="modal-overlay" id="new-task-modal" style="display: none;">
+<div class="modal-card">
+<div class="modal-header">
+<h2 data-i18n="auto_add_board_task_270" id="task-modal-title">Add Board Task</h2>
+<p data-i18n="auto_leave_the_time_blank_271">Leave the time blank for manual approval, or schedule the AI Board Member to run it automatically at a specific time.</p>
+</div>
+<form class="custom-form" id="new-task-form">
+<div class="input-group">
+<label data-i18n="auto_board_task_instructi_272" for="task-prompt">Board task / instructions</label>
+<textarea id="task-prompt" placeholder="e.g. Scrape the The Company website and summarize the new grants." required="" rows="3"></textarea>
+</div>
+<div class="input-group">
+<label data-i18n="auto_project_scope_option_273" for="task-project-select">Project scope (optional)</label>
+<select id="task-project-select">
+<option value="">The Company-wide task</option>
+</select>
+</div>
+<div class="input-group">
+<label data-i18n="auto_run_automatically_at_274" for="task-time">Run automatically at (optional)</label>
+<input id="task-time" type="datetime-local"/>
+</div>
+<div class="modal-actions">
+<button class="cancel-btn" data-i18n="auto_cancel_275" id="close-task-modal-btn" type="button">Cancel</button>
+<button class="save-btn" data-i18n="auto_add_to_pending_276" id="task-modal-submit" type="submit">Add to Pending</button>
+</div>
+</form>
+</div>
+</div>
+<!-- Task Archive / Version History -->
+<div class="modal-overlay" id="task-archive-modal" style="display: none;">
+<div class="modal-card task-archive-modal-card">
+<div class="modal-header flex-between">
+<div>
+<h2 data-i18n="auto_task_archive_277" id="archive-task-title">Task archive</h2>
+<p id="archive-task-meta"></p>
+</div>
+<button aria-label="Close archive" class="close-icon-btn" id="close-task-archive-btn" type="button">├ù</button>
+</div>
+<section class="archive-section">
+<h3 data-i18n="auto_run_result_278">Run result</h3>
+<pre class="archive-task-result" id="archive-task-result"></pre>
+</section>
+<section class="archive-section">
+<h3 data-i18n="auto_version_history_279">Version history</h3>
+<div class="archive-version-history" id="archive-version-history"></div>
+</section>
+<div class="modal-actions">
+<span aria-live="polite" class="subtext" id="archive-task-status"></span>
+<button class="save-btn" data-i18n="auto_run_again_as_new_ver_280" id="rerun-archive-task-btn" type="button">Run again as new version</button>
+</div>
+</div>
+</div>
+</div>
+<div aria-modal="true" class="modal-overlay" id="citation-inspector-modal" role="dialog" style="display: none;">
+<div class="modal-card citation-inspector-card">
+<div class="modal-header flex-between">
+<div>
+<h2 id="citation-inspector-title">Document source</h2>
+<p id="citation-inspector-meta"></p>
+</div>
+<button aria-label="Close source inspector" class="close-icon-btn" id="close-citation-inspector-btn" type="button">├ù</button>
+</div>
+<p aria-live="polite" class="subtext" id="citation-inspector-status"></p>
+<pre class="citation-inspector-content" id="citation-inspector-content"></pre>
+</div>
+</div>
+<script src="/src/main.ts" type="module"></script>
 </body>
 </html>
 

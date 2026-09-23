@@ -15,12 +15,14 @@ export interface RobotEntity {
   currentY: number; // Pixel center in base 16px tile space
   targetX: number;
   targetY: number;
-  state: 'idle' | 'walking_to_work' | 'working' | 'thinking' | 'executing' | 'walking_to_lounge';
+  state: 'idle' | 'walking_to_work' | 'working' | 'thinking' | 'executing' | 'walking_to_lounge' | 'wandering';
   currentTask: string;
   walkFrame: number;
   facing: 'down' | 'left' | 'right' | 'up';
   focused: boolean;
   activeTool?: string;
+  wanderTimer?: number;
+  wanderCount?: number;
 }
 
 interface FurnitureSpec {
@@ -177,6 +179,11 @@ export class RobotCanvasVisualizer {
     this.resizeCanvas();
     window.addEventListener('resize', () => this.resizeCanvas());
 
+    if (this.canvas && this.canvas.parentElement && typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(() => this.resizeCanvas());
+      ro.observe(this.canvas.parentElement);
+    }
+
     this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
     this.canvas.addEventListener('click', () => this.handleClick());
 
@@ -238,19 +245,25 @@ export class RobotCanvasVisualizer {
     const parent = this.canvas.parentElement;
     if (parent) {
       const dpr = window.devicePixelRatio || 1;
-      this.canvas.width = parent.clientWidth * dpr;
-      this.canvas.height = parent.clientHeight * dpr;
+      const width = parent.clientWidth || 800;
+      const height = parent.clientHeight || 600;
+      this.canvas.width = width * dpr;
+      this.canvas.height = height * dpr;
       this.ctx.scale(dpr, dpr);
       this.recalculatePositions();
     }
   }
 
   private getEffectiveWidth(): number {
-    return this.canvas.parentElement ? this.canvas.parentElement.clientWidth : this.canvas.width;
+    return (this.canvas.parentElement && this.canvas.parentElement.clientWidth > 0)
+      ? this.canvas.parentElement.clientWidth
+      : (this.canvas.width || 800);
   }
 
   private getEffectiveHeight(): number {
-    return this.canvas.parentElement ? this.canvas.parentElement.clientHeight : this.canvas.height;
+    return (this.canvas.parentElement && this.canvas.parentElement.clientHeight > 0)
+      ? this.canvas.parentElement.clientHeight
+      : (this.canvas.height || 600);
   }
 
   // Calculate dynamic pixel zoom & alignment offsets (matching Pixel Agents renderer)
@@ -456,7 +469,9 @@ export class RobotCanvasVisualizer {
   public getActiveCount(): number {
     let active = 0;
     this.robots.forEach((r) => {
-      if (r.state !== 'idle') active++;
+      if (r.state === 'working' || r.state === 'thinking' || r.state === 'executing' || r.state === 'walking_to_work') {
+        active++;
+      }
     });
     return active;
   }
@@ -666,13 +681,43 @@ export class RobotCanvasVisualizer {
           } else if (bot.state === 'walking_to_lounge') {
             bot.state = 'idle';
             bot.facing = bot.loungeFacing;
+            bot.wanderTimer = 120 + Math.random() * 300;
+            bot.wanderCount = 0;
+          } else if (bot.state === 'wandering') {
+            bot.state = 'idle';
+            bot.wanderTimer = 60 + Math.random() * 180;
+          }
+        }
+      } else {
+        if (bot.state === 'idle') {
+          if (bot.wanderTimer === undefined) {
+            bot.wanderTimer = 120 + Math.random() * 300;
+            bot.wanderCount = 0;
+          }
+          bot.wanderTimer--;
+          if (bot.wanderTimer <= 0) {
+            if ((bot.wanderCount || 0) < 3) {
+              bot.state = 'wandering';
+              bot.wanderCount = (bot.wanderCount || 0) + 1;
+              bot.targetX = Math.floor(5 + Math.random() * 13) * 16 + 8;
+              bot.targetY = Math.floor(10 + Math.random() * 8) * 16 + 8;
+            } else {
+              bot.state = 'walking_to_lounge';
+              bot.targetX = bot.loungeCol * 16 + 8;
+              bot.targetY = bot.loungeRow * 16 + 8;
+              bot.wanderCount = 0;
+            }
           }
         }
       }
 
       const rx = bot.currentX;
       const ry = bot.currentY;
-      const isSeated = (bot.state === 'working' || bot.state === 'idle');
+
+      const atWork = Math.abs(bot.currentX - (bot.workCol * 16 + 8)) < 2 && Math.abs(bot.currentY - (bot.workRow * 16 + 8)) < 2;
+      const atLounge = Math.abs(bot.currentX - (bot.loungeCol * 16 + 8)) < 2 && Math.abs(bot.currentY - (bot.loungeRow * 16 + 8)) < 2;
+      const isSeated = (bot.state === 'working' && atWork) || (bot.state === 'idle' && atLounge);
+
       const sittingOffset = isSeated ? 4 : 0; // CHARACTER_SITTING_OFFSET_PX = 4px
 
       const charZY = ry + 8 + 2; // Depth sort key

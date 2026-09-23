@@ -1,7 +1,7 @@
 # Technical Changes Report: MVP Showcase Light Mode Color Palette Refactor
 
 **Date:** August 5, 2026  
-**Target Application:** Forest Joensuu AI OS (`ui/src/style.css`)
+**Target Application:** The Company AI OS (`ui/src/style.css`)
 
 ---
 

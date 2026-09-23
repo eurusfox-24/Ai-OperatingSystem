@@ -1,7 +1,7 @@
 # Technical Changes Report: Removal of Mock Document Placeholders & Dynamic Knowledge Base Table
 
 **Date**: 2026-07-29  
-**Target Focus**: Forest Joensuu AI OS, Document Ingestion Knowledge Base Table Audit  
+**Target Focus**: The Company AI OS, Document Ingestion Knowledge Base Table Audit  
 **Status**: Completed & Verified  
 
 ---

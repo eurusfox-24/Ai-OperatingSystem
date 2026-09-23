@@ -1,4 +1,4 @@
-# Forest Joensuu AI OS — System Design Guidelines
+# The Company AI OS — System Design Guidelines
 
 > Status: paused on 2026-08-02. Retained for the later standalone Windows/Linux phase.
 

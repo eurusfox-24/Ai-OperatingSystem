@@ -1,10 +1,10 @@
-# Forest Joensuu AI OS — MVP Project Constraints
+# The Company AI OS — MVP Project Constraints
 
 > Status: paused on 2026-08-02. Retained as future planning material, not active builder instructions.
 
 ## 1. Product objective
 
-Build a client-testable strategic intelligence MVP for the Forest Joensuu ecosystem.
+Build a client-testable strategic intelligence MVP for The Company ecosystem.
 The product must turn external and internal information into traceable opportunities,
 prioritized decisions, meeting actions, and a lean view of ecosystem outcomes.
 
@@ -17,7 +17,7 @@ complete this loop.
 
 ## 2. Primary users
 
-- Forest Joensuu and Business Joensuu ecosystem leadership
+- The Company ecosystem leadership
 - Economic development, investment, startup, and RDI programme staff
 - Meeting and workshop facilitators
 - Authorized representatives of participating organizations

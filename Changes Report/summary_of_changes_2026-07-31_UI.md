@@ -3,7 +3,7 @@
 **Date:** 2026-07-31
 
 ## Summary of Architectural Changes
-The frontend user interface of the Forest Joensuu AI OS has been comprehensively restructured from a standard unified chat interface to a modern, 3-column NotebookLM-style workspace. This new layout separates the concepts of Notebook Collections, Executive Briefing Documents, and Contextual RAG Chat to provide a highly focused, strategic workspace for the AI Board Member persona. The aesthetic has been upgraded to a cohesive, dark-themed glassmorphism design with interactive widgets and citation viewers.
+The frontend user interface of the The Company AI OS has been comprehensively restructured from a standard unified chat interface to a modern, 3-column NotebookLM-style workspace. This new layout separates the concepts of Notebook Collections, Executive Briefing Documents, and Contextual RAG Chat to provide a highly focused, strategic workspace for the AI Board Member persona. The aesthetic has been upgraded to a cohesive, dark-themed glassmorphism design with interactive widgets and citation viewers.
 
 ## Detailed Technical Changes
 
