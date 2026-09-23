@@ -5,8 +5,9 @@
 **Author:** Min Set Ko  
 **Date:** September 23, 2026  
 **Audience:** Technical Supervisor & Engineering Leadership  
-**Classification:** Strictly Confidential — Internal Engineering Hand-Off  
-**Target Repository:** `c:\Users\minns\OneDrive\Desktop\digiole\AI OS`  
+**Remote Repository:** `https://github.com/eurusfox-24/Ai-OperatingSystem` (Private)  
+**Active Feature Branch:** `feature/executive-boardroom-ui` (Target: `main`)  
+**Latest Audit Commit:** `87676d4` (`chore: Codebase audit, bug remediation, company name sanitization, and UI restoration`)  
 **Git Tracking Status:** Untracked (Enforced by `.gitignore:33:docs/supervisor/`)
 
 ---
