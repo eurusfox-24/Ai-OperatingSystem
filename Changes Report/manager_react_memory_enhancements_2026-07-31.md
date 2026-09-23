@@ -3,7 +3,7 @@
 **Summary of Changes**: Manager Agent ReAct Loop and Persistent Memory Summarization
 
 ## Architectural Summary
-The core orchestrator of the Forest Joensuu AI OS (`kernel/agents/manager.py`) has been upgraded from a single-step tool calling pattern to an autonomous ReAct (Reason + Act) loop. Additionally, it now supports persistent long-term memory across sessions using the existing embedded SQLite database (`agent_memories` table). 
+The core orchestrator of the The Company AI OS (`kernel/agents/manager.py`) has been upgraded from a single-step tool calling pattern to an autonomous ReAct (Reason + Act) loop. Additionally, it now supports persistent long-term memory across sessions using the existing embedded SQLite database (`agent_memories` table). 
 
 ## Detailed Breakdown of Technical Changes
 

@@ -1,26 +1,31 @@
 {
   "alex": {
     "username": "alex",
-    "password": "joensuu123",
+    "password_hash": "pbkdf2_sha256$600000$SbngBfWbPgctIJIjkLhd0Q==$u3qXAdYZDQM8upeQPtuek7G1GxXUvGjKHlP1_pZFlFk=",
     "display_name": "Alex J\u00e4rvilehto",
-    "role": "Executive Board Lead (Business Joensuu)",
+    "role": "Executive Board Lead",
     "tone_style": "formal_executive",
-    "custom_instructions": "Focus on high-level strategic alignment, private-sector job creation, and Susicorn scaling. Keep intro short and actionable."
+    "custom_instructions": "Empirical test instructions",
+    "language": "en",
+    "session_version": 0
   },
   "analyst": {
     "username": "analyst",
-    "password": "joensuu123",
+    "password_hash": "pbkdf2_sha256$600000$-Tztk1OL1DDCjG7GnaUYaw==$YxAHzCLd22JW_AvaS3zjXbbfyN6uG5TtjMx91T5eIb4=",
     "display_name": "Regional Research Analyst",
     "role": "Bioeconomy Data Analyst",
     "tone_style": "data_analytical",
-    "custom_instructions": "Provide detailed data breakdowns, numerical statistics, citations, and structured bulleted scorecards."
+    "custom_instructions": "Provide detailed data breakdowns, numerical statistics, citations, and structured bulleted scorecards.",
+    "language": "en",
+    "session_version": 0
   },
   "investor": {
     "username": "investor",
-    "password": "joensuu123",
+    "password_hash": "pbkdf2_sha256$600000$z-0VZ4qlpVLwmkNUjzjECw==$cI9PamjxzaHJd5YZThWBz641nksFkMK0fwgU00W33Lw=",
     "display_name": "Venture Capital Partner",
     "role": "Inward Investment Director",
     "tone_style": "direct_financial",
-    "custom_instructions": "Focus on financial ROI, venture capital deal flow, risks, and 3-year revenue potential."
+    "custom_instructions": "Focus on financial ROI, venture capital deal flow, risks, and 3-year revenue potential.",
+    "session_version": 0
   }
 }

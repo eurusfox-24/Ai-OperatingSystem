@@ -1,5 +1,8 @@
 import { RobotCanvasVisualizer } from './visualizer/robot_canvas';
 import { SocketClient } from './socket';
+import { initI18n, setLanguage, getLanguage, t } from './i18n';
+
+const AUTH_TOKEN_KEY = 'ai_os_access_token';
 
 // Intercept fetch to automatically prepend backend host when running from file://
 const originalFetch = window.fetch;
@@ -8,7 +11,25 @@ window.fetch = async (input, init) => {
   if (typeof url === 'string' && url.startsWith('/api') && window.location.protocol === 'file:') {
     url = 'http://127.0.0.1:8000' + url;
   }
-  return originalFetch(url, init);
+  const target = typeof url === 'string' ? url : url instanceof Request ? url.url : String(url);
+  const isApiRequest = target.startsWith('/api') || target.startsWith('http://127.0.0.1:8000/api');
+  const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+  if (isApiRequest && token) {
+    const headers = new Headers(init?.headers || (url instanceof Request ? url.headers : undefined));
+    headers.set('Authorization', `Bearer ${token}`);
+    init = { ...init, headers };
+  }
+  const response = await originalFetch(url, init);
+  if (
+    response.status === 401
+    && token
+    && sessionStorage.getItem(AUTH_TOKEN_KEY) === token
+    && !target.endsWith('/api/auth/login')
+  ) {
+    sessionStorage.removeItem(AUTH_TOKEN_KEY);
+    window.dispatchEvent(new CustomEvent('ai-os-auth-expired'));
+  }
+  return response;
 };
 
 interface UserProfile {
@@ -17,6 +38,7 @@ interface UserProfile {
   role: string;
   tone_style: string;
   custom_instructions: string;
+  language?: string;
 }
 
 interface RuntimeProvider {
@@ -45,19 +67,85 @@ interface ProviderRegistryEntry {
 let loadedPromptsCache: Record<string, any> = {};
 let refreshNotebookWorkspace: (() => Promise<void>) | undefined;
 let refreshChatSessionSidebar: (() => Promise<void>) | undefined;
+let currentUser: UserProfile | null = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+  initI18n(); // Initialize language from localStorage
   const visualizer = new RobotCanvasVisualizer('robot-canvas');
   let socketClient: SocketClient | null = null;
   const appShell = document.getElementById('app');
+  currentUser = null;
+
+  // Language Toggle
+  const langEnBtn = document.getElementById('lang-en') as HTMLButtonElement;
+  const langFiBtn = document.getElementById('lang-fi') as HTMLButtonElement;
+
+  function updateLangToggleUI() {
+    const lang = getLanguage();
+    if (lang === 'en') {
+      langEnBtn?.classList.add('active');
+      langFiBtn?.classList.remove('active');
+    } else {
+      langFiBtn?.classList.add('active');
+      langEnBtn?.classList.remove('active');
+    }
+  }
+
+  async function handleLanguageToggle(lang: 'en' | 'fi') {
+    setLanguage(lang);
+    updateLangToggleUI();
+
+    const payload = {
+      username: currentUser?.username || 'alex',
+      tone_style: currentUser?.tone_style || 'formal_executive',
+      custom_instructions: currentUser?.custom_instructions || '',
+      language: lang,
+    };
+
+    try {
+      const res = await fetch('/api/user/customization', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (currentUser) {
+          currentUser.language = data.user?.language || lang;
+        }
+      } else {
+        console.warn('Failed to persist language customization to backend:', await res.text());
+      }
+    } catch (err) {
+      console.error('Error persisting language customization:', err);
+    }
+  }
+
+  if (langEnBtn && langFiBtn) {
+    updateLangToggleUI();
+    langEnBtn.addEventListener('click', () => { void handleLanguageToggle('en'); });
+    langFiBtn.addEventListener('click', () => { void handleLanguageToggle('fi'); });
+  }
+
+  window.addEventListener('languageChanged', () => {
+    // Re-render kanban to apply dynamic translations
+    if (viewDashboard && viewDashboard.style.display !== 'none') {
+        // fetchAndRenderKanbanTasks is module-scoped and can refresh translated labels.
+        // wait, fetchAndRenderKanbanTasks is at module scope.
+        fetchAndRenderKanbanTasks();
+    }
+  });
 
   // 3-Mode Theme Switcher (Nordic White, Warm Dark, Warm Sand)
-  const themeBtns = document.querySelectorAll('.theme-btn') as NodeListOf<HTMLButtonElement>;
+  const themeBtns = document.querySelectorAll('.theme-btn[data-theme-set]') as NodeListOf<HTMLButtonElement>;
   function applyTheme(themeName: string) {
     document.documentElement.setAttribute('data-theme', themeName);
     localStorage.setItem('ai_os_theme', themeName);
     themeBtns.forEach(btn => {
-      if (btn.getAttribute('data-theme-set') === themeName) {
+      const themeSet = btn.getAttribute('data-theme-set');
+      if (!themeSet) return;
+      if (themeSet === themeName) {
         btn.classList.add('active');
       } else {
         btn.classList.remove('active');
@@ -74,14 +162,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (theme) applyTheme(theme);
     });
   });
-  
+
   // Tab View Navigation Elements
   const tabDashboard = document.getElementById('tab-dashboard') as HTMLButtonElement;
   const tabMvpShowcase = document.getElementById('tab-mvp-showcase') as HTMLButtonElement | null;
   const tabCustomization = document.getElementById('tab-customization') as HTMLButtonElement | null;
   const tabIngestion = document.getElementById('tab-ingestion') as HTMLButtonElement | null;
   const tabHabitat = document.getElementById('tab-habitat') as HTMLButtonElement | null;
-  const btnGoIngestion = document.getElementById('btn-go-ingestion') as HTMLButtonElement | null;
   const backToDashboardBtn = document.getElementById('back-to-dashboard-btn') as HTMLButtonElement | null;
   const viewDashboard = document.getElementById('view-dashboard') as HTMLDivElement;
   const viewMvpShowcase = document.getElementById('view-mvp-showcase') as HTMLDivElement | null;
@@ -100,6 +187,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const habitatSaveStatus = document.getElementById('habitat-save-status') as HTMLSpanElement | null;
   const tabKanbanHeader = document.getElementById('tab-kanban') as HTMLButtonElement | null;
   const viewKanbanPage = document.getElementById('view-kanban') as HTMLDivElement | null;
+  const tabAgenticGoals = document.getElementById('tab-agentic-goals') as HTMLButtonElement | null;
+  const viewAgenticGoals = document.getElementById('view-agentic-goals') as HTMLDivElement | null;
+  const agentWorkGoalsMode = document.getElementById('agent-work-goals-mode') as HTMLButtonElement | null;
+  const agentWorkBoardMode = document.getElementById('agent-work-board-mode') as HTMLButtonElement | null;
+  const agentWorkGoalsPanel = document.getElementById('agent-work-goals-panel') as HTMLDivElement | null;
+  const agentWorkBoardPanel = document.getElementById('agent-work-board-panel') as HTMLDivElement | null;
+  const tabMonitoring = document.getElementById('tab-monitoring') as HTMLButtonElement | null;
+  const viewMonitoring = document.getElementById('view-monitoring') as HTMLDivElement | null;
+  const tabEmail = document.getElementById('tab-email') as HTMLButtonElement | null;
+  const viewEmail = document.getElementById('view-email') as HTMLDivElement | null;
+  const emailSyncBtn = document.getElementById('email-sync-btn') as HTMLButtonElement | null;
+  const emailSyncInterval = document.getElementById('email-sync-interval') as HTMLSelectElement | null;
+  const emailStatus = document.getElementById('email-status') as HTMLParagraphElement | null;
+  const emailLastSync = document.getElementById('email-last-sync') as HTMLSpanElement | null;
+  const emailSummary = document.getElementById('email-summary') as HTMLDivElement | null;
+  const emailMessageList = document.getElementById('email-message-list') as HTMLDivElement | null;
+  const emailPreview = document.getElementById('email-preview') as HTMLElement | null;
+  const emailDraftList = document.getElementById('email-draft-list') as HTMLDivElement | null;
+  let selectedEmailMessageId = '';
   const tabAgentLogs = document.getElementById('tab-agent-logs') as HTMLButtonElement | null;
   const viewAgentLogs = document.getElementById('view-agent-logs') as HTMLDivElement | null;
   const agentLogsList = document.getElementById('agent-logs-list') as HTMLDivElement | null;
@@ -123,6 +229,28 @@ document.addEventListener('DOMContentLoaded', () => {
   let runtimeProviders: Record<string, RuntimeProvider> = {};
   let providerRegistry: ProviderRegistryEntry[] = [];
   let editingProviderId: string | null = null;
+
+  const existingKanbanLayout = viewKanbanPage?.querySelector('.kanban-layout');
+  if (existingKanbanLayout && agentWorkBoardPanel) agentWorkBoardPanel.appendChild(existingKanbanLayout);
+
+  function setAgentWorkMode(mode: 'goals' | 'board') {
+    if (agentWorkGoalsPanel) agentWorkGoalsPanel.style.display = mode === 'goals' ? 'grid' : 'none';
+    if (agentWorkBoardPanel) agentWorkBoardPanel.style.display = mode === 'board' ? 'block' : 'none';
+    agentWorkGoalsMode?.classList.toggle('active', mode === 'goals');
+    agentWorkBoardMode?.classList.toggle('active', mode === 'board');
+    if (mode === 'goals') void fetchAndRenderAgenticGoals();
+    if (mode === 'board') void fetchAndRenderKanbanTasks();
+  }
+
+  agentWorkGoalsMode?.addEventListener('click', () => setAgentWorkMode('goals'));
+  agentWorkBoardMode?.addEventListener('click', () => setAgentWorkMode('board'));
+  window.addEventListener('open-agent-work-goal', (event: Event) => {
+    const goalId = String((event as CustomEvent).detail?.goalId || '');
+    if (!goalId) return;
+    switchView('agentic-goals');
+    setAgentWorkMode('goals');
+    void selectAgenticGoal(goalId);
+  });
 
   function setProviderSetupStatus(message = '') {
     if (providerSetupStatus) providerSetupStatus.textContent = message;
@@ -203,7 +331,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!providerRegistryGrid) return;
     try {
       const response = await fetch('/api/providers/registry');
-      if (!response.ok) throw new Error(await response.text());
       if (!response.ok) throw new Error(await response.text());
       const data = await response.json();
       providerRegistry = Array.isArray(data.providers) ? data.providers : [];
@@ -339,13 +466,641 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function switchView(target: 'dashboard' | 'mvp-showcase' | 'customization' | 'ingestion' | 'habitat' | 'kanban' | 'agent-logs') {
+  // Goal-driven Agent Control Center
+  const agenticGoalList = document.getElementById('agentic-goal-list') as HTMLDivElement | null;
+  const agenticGoalDetail = document.getElementById('agentic-goal-detail') as HTMLElement | null;
+  const agenticGoalsStatus = document.getElementById('agentic-goals-status') as HTMLParagraphElement | null;
+  const refreshAgenticGoalsBtn = document.getElementById('refresh-agentic-goals-btn') as HTMLButtonElement | null;
+  const newAgenticGoalBtn = document.getElementById('new-agentic-goal-btn') as HTMLButtonElement | null;
+  const newAgenticGoalModal = document.getElementById('new-agentic-goal-modal') as HTMLDivElement | null;
+  const closeAgenticGoalModalBtn = document.getElementById('close-agentic-goal-modal-btn') as HTMLButtonElement | null;
+  const newAgenticGoalForm = document.getElementById('new-agentic-goal-form') as HTMLFormElement | null;
+  const agenticGoalTitle = document.getElementById('agentic-goal-title') as HTMLInputElement | null;
+  const agenticGoalObjective = document.getElementById('agentic-goal-objective') as HTMLTextAreaElement | null;
+  const agenticGoalCriteria = document.getElementById('agentic-goal-criteria') as HTMLTextAreaElement | null;
+  const agenticGoalProject = document.getElementById('agentic-goal-project') as HTMLSelectElement | null;
+  const agenticGoalRuntime = document.getElementById('agentic-goal-runtime') as HTMLSelectElement | null;
+  const agenticGoalWeb = document.getElementById('agentic-goal-web') as HTMLInputElement | null;
+  const agenticGoalFormStatus = document.getElementById('agentic-goal-form-status') as HTMLSpanElement | null;
+  let selectedAgenticGoalId = '';
+
+  function agenticText(tag: string, className: string, value: unknown) {
+    const element = document.createElement(tag);
+    if (className) element.className = className;
+    element.textContent = String(value ?? '');
+    return element;
+  }
+
+  function agenticStatusLabel(status: string) {
+    return status.replace(/_/g, ' ');
+  }
+
+  async function loadAgenticProjectOptions() {
+    if (!agenticGoalProject) return;
+    try {
+      const response = await fetch('/api/notebooks');
+      if (!response.ok) throw new Error('Could not load projects');
+      const data = await response.json();
+      const projects = Array.isArray(data.notebooks) ? data.notebooks : Array.isArray(data) ? data : [];
+      const selected = agenticGoalProject.value;
+      agenticGoalProject.replaceChildren(new Option('Organization-wide (no private project documents)', ''));
+      projects.forEach((project: any) => agenticGoalProject.add(new Option(project.name || project.id, project.id)));
+      if (projects.some((project: any) => project.id === selected)) agenticGoalProject.value = selected;
+    } catch (error) {
+      console.warn('Could not load goal project boundaries:', error);
+    }
+  }
+
+  async function fetchAndRenderAgenticGoals(preserveSelection = true) {
+    if (!agenticGoalList) return;
+    if (agenticGoalsStatus) agenticGoalsStatus.textContent = 'Loading goals…';
+    try {
+      const response = await fetch('/api/agentic/goals?limit=100');
+      if (!response.ok) throw new Error('Could not load agent goals');
+      const data = await response.json();
+      const goals = Array.isArray(data.goals) ? data.goals : [];
+      agenticGoalList.replaceChildren();
+      goals.forEach((goal: any) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `agentic-goal-list-item${goal.id === selectedAgenticGoalId ? ' active' : ''}`;
+        const top = document.createElement('span');
+        top.className = 'agentic-goal-list-top';
+        top.append(
+          agenticText('strong', '', goal.title || 'Untitled goal'),
+          agenticText('em', `agentic-status status-${goal.status || 'draft'}`, agenticStatusLabel(goal.status || 'draft')),
+        );
+        const progress = `${goal.completed_task_count || 0}/${goal.task_count || 0} tasks`;
+        button.append(top, agenticText('small', '', progress), agenticText('p', '', trimLogText(goal.objective, 120)));
+        button.addEventListener('click', () => void selectAgenticGoal(goal.id));
+        agenticGoalList.appendChild(button);
+      });
+      if (!goals.length) {
+        const empty = agenticText('div', 'agentic-list-empty', 'No goals yet. Create one to let the AI Board Member plan and coordinate a bounded outcome.');
+        agenticGoalList.appendChild(empty);
+      }
+      if (agenticGoalsStatus) agenticGoalsStatus.textContent = `${goals.length} goal${goals.length === 1 ? '' : 's'}`;
+      if (preserveSelection && selectedAgenticGoalId) await selectAgenticGoal(selectedAgenticGoalId, false);
+    } catch (error) {
+      if (agenticGoalsStatus) agenticGoalsStatus.textContent = 'Goals are unavailable. Check that the local kernel is running.';
+      console.warn('Could not load agentic goals:', error);
+    }
+  }
+
+  async function selectAgenticGoal(goalId: string, refreshList = true) {
+    selectedAgenticGoalId = goalId;
+    if (refreshList) {
+      agenticGoalList?.querySelectorAll('.agentic-goal-list-item').forEach((item) => item.classList.remove('active'));
+    }
+    try {
+      const response = await fetch(`/api/agentic/goals/${encodeURIComponent(goalId)}`);
+      if (!response.ok) throw new Error('Could not load goal details');
+      renderAgenticGoalDetail(await response.json());
+      if (refreshList) void fetchAndRenderAgenticGoals(false);
+    } catch (error) {
+      if (agenticGoalDetail) agenticGoalDetail.replaceChildren(agenticText('p', 'agentic-error', 'This goal could not be loaded.'));
+      console.warn(error);
+    }
+  }
+
+  function renderAgenticGoalDetail(goal: any) {
+    if (!agenticGoalDetail) return;
+    const header = document.createElement('header');
+    header.className = 'agentic-detail-header';
+    const heading = document.createElement('div');
+    heading.append(
+      agenticText('span', `agentic-status status-${goal.status}`, agenticStatusLabel(goal.status)),
+      agenticText('h2', '', goal.title),
+      agenticText('p', '', goal.objective),
+    );
+    const controls = document.createElement('div');
+    controls.className = 'agentic-control-actions';
+    const addControl = (label: string, action: string, style = 'chip-btn') => {
+      const button = agenticText('button', style, label) as HTMLButtonElement;
+      button.type = 'button';
+      button.addEventListener('click', () => void controlAgenticGoal(goal.id, action));
+      controls.appendChild(button);
+    };
+    if (['draft', 'failed'].includes(goal.status)) addControl('Start', 'start', 'save-btn');
+    if (['planning', 'running', 'queued'].includes(goal.status)) addControl('Pause', 'pause');
+    if (goal.status === 'paused') addControl('Resume', 'resume', 'save-btn');
+    if (!['completed', 'failed', 'cancelled'].includes(goal.status)) addControl('Cancel', 'cancel', 'cancel-btn');
+    header.append(heading, controls);
+
+    const metrics = document.createElement('div');
+    metrics.className = 'agentic-metrics';
+    const tasks = Array.isArray(goal.tasks) ? goal.tasks : [];
+    const completed = tasks.filter((task: any) => task.status === 'completed').length;
+    [
+      ['Progress', `${completed}/${tasks.length} tasks`],
+      ['Plan', `Version ${goal.plan_version || 0}`],
+      ['Web', goal.web_access ? 'Permitted' : 'Off'],
+      ['Step limit', goal.max_steps],
+      ['Runtime', `${goal.max_runtime_minutes} min`],
+      ['Approvals', `${(goal.proposals || []).filter((item: any) => item.status === 'pending').length} pending`],
+    ].forEach(([label, value]) => {
+      const card = document.createElement('div');
+      card.append(agenticText('small', '', label), agenticText('strong', '', value));
+      metrics.appendChild(card);
+    });
+
+    const steering = document.createElement('div');
+    steering.className = 'agentic-steering';
+    const steeringInput = document.createElement('input');
+    steeringInput.placeholder = 'Add direction for the next safe task boundary…';
+    steeringInput.maxLength = 2000;
+    const steeringButton = agenticText('button', 'chip-btn', 'Steer') as HTMLButtonElement;
+    steeringButton.type = 'button';
+    steeringButton.disabled = ['completed', 'failed', 'cancelled'].includes(goal.status);
+    steeringButton.addEventListener('click', async () => {
+      const direction = steeringInput.value.trim();
+      if (!direction) return;
+      await controlAgenticGoal(goal.id, 'steer', { direction });
+      steeringInput.value = '';
+    });
+    steering.append(steeringInput, steeringButton);
+
+    const planSection = document.createElement('section');
+    planSection.className = 'agentic-detail-section';
+    planSection.append(agenticText('h3', '', 'Execution plan'));
+    const plan = document.createElement('div');
+    plan.className = 'agentic-plan-list';
+    tasks.forEach((task: any, index: number) => {
+      const card = document.createElement('article');
+      card.className = `agentic-task-card task-${task.status}`;
+      const number = agenticText('span', 'agentic-task-number', String(index + 1));
+      const body = document.createElement('div');
+      const taskTop = document.createElement('div');
+      taskTop.className = 'agentic-task-top';
+      taskTop.append(agenticText('strong', '', task.title), agenticText('em', `agentic-status status-${task.status}`, agenticStatusLabel(task.status)));
+      body.append(taskTop, agenticText('small', '', `${task.agent_type} · ${String(task.capability).replace(/_/g, ' ')} · ${String(task.risk_level).replace(/_/g, ' ')}`));
+      const detail = task.error_message || task.output?.summary || task.instructions;
+      body.append(agenticText('p', '', trimLogText(detail, 420)));
+      card.append(number, body);
+      plan.appendChild(card);
+    });
+    if (!tasks.length) plan.appendChild(agenticText('p', 'subtext', 'The plan will appear when this goal starts.'));
+    planSection.appendChild(plan);
+
+    const proposalSection = document.createElement('section');
+    proposalSection.className = 'agentic-detail-section';
+    proposalSection.append(agenticText('h3', '', 'Approval proposals'));
+    const proposals = Array.isArray(goal.proposals) ? goal.proposals : [];
+    if (!proposals.length) proposalSection.append(agenticText('p', 'subtext', 'No consequential actions have been proposed.'));
+    proposals.forEach((proposal: any) => {
+      const card = document.createElement('article');
+      card.className = 'agentic-proposal-card';
+      card.append(agenticText('strong', '', proposal.action_type), agenticText('p', '', proposal.summary), agenticText('small', '', `Status: ${proposal.status}`));
+      if (proposal.status === 'pending') {
+        const buttons = document.createElement('div');
+        ['approved', 'rejected'].forEach((decision) => {
+          const button = agenticText('button', decision === 'approved' ? 'save-btn' : 'cancel-btn', decision === 'approved' ? 'Approve proposal' : 'Reject') as HTMLButtonElement;
+          button.type = 'button';
+          button.addEventListener('click', () => void decideAgenticProposal(proposal.id, decision));
+          buttons.appendChild(button);
+        });
+        card.appendChild(buttons);
+      }
+      proposalSection.appendChild(card);
+    });
+
+    const artifactSection = document.createElement('section');
+    artifactSection.className = 'agentic-detail-section';
+    artifactSection.append(agenticText('h3', '', 'Artifacts'));
+    const artifacts = Array.isArray(goal.artifacts) ? goal.artifacts : [];
+    if (!artifacts.length) artifactSection.append(agenticText('p', 'subtext', 'The decision brief will be saved here when the plan completes.'));
+    artifacts.forEach((artifact: any) => {
+      const details = document.createElement('details');
+      const summary = agenticText('summary', '', artifact.title || artifact.artifact_type);
+      const content = agenticText('pre', 'agentic-artifact-content', artifact.content_md);
+      details.append(summary, content);
+      artifactSection.appendChild(details);
+    });
+
+    const eventsSection = document.createElement('section');
+    eventsSection.className = 'agentic-detail-section';
+    eventsSection.append(agenticText('h3', '', 'Audit trail'));
+    const eventList = document.createElement('div');
+    eventList.className = 'agentic-event-list';
+    (goal.events || []).slice(-30).reverse().forEach((event: any) => {
+      const row = document.createElement('div');
+      row.append(agenticText('time', '', formatLogTime(event.created_at)), agenticText('strong', '', String(event.event_type).replace(/_/g, ' ')), agenticText('p', '', event.message));
+      eventList.appendChild(row);
+    });
+    eventsSection.appendChild(eventList);
+
+    const resultSection = document.createElement('section');
+    resultSection.className = 'agentic-detail-section agentic-result-section';
+    resultSection.append(agenticText('h3', '', 'Current outcome'));
+    resultSection.append(agenticText('pre', 'agentic-artifact-content', goal.error_message || goal.result_md || 'Work has not produced a final outcome yet.'));
+
+    agenticGoalDetail.replaceChildren(header, metrics, steering, planSection, proposalSection, artifactSection, resultSection, eventsSection);
+  }
+
+  async function controlAgenticGoal(goalId: string, action: string, payload?: Record<string, unknown>) {
+    try {
+      const response = await fetch(`/api/agentic/goals/${encodeURIComponent(goalId)}/${action}`, {
+        method: 'POST',
+        headers: payload ? { 'Content-Type': 'application/json' } : undefined,
+        body: payload ? JSON.stringify(payload) : undefined,
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || `Could not ${action} goal`);
+      }
+      await fetchAndRenderAgenticGoals();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : `Could not ${action} goal`);
+    }
+  }
+
+  async function decideAgenticProposal(proposalId: number, decision: string) {
+    try {
+      const response = await fetch(`/api/agentic/proposals/${proposalId}/decision`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision, decided_by: currentUser?.username || 'alex' }),
+      });
+      if (!response.ok) {
+        alert('This proposal could not be updated. It may already have been decided.');
+        return;
+      }
+      if (selectedAgenticGoalId) await selectAgenticGoal(selectedAgenticGoalId);
+    } catch (err) {
+      console.error('Error updating proposal decision:', err);
+      alert(`Could not update proposal: ${err instanceof Error ? err.message : 'network error'}`);
+    }
+  }
+
+  function closeAgenticGoalModal() {
+    if (newAgenticGoalModal) newAgenticGoalModal.style.display = 'none';
+    if (agenticGoalFormStatus) agenticGoalFormStatus.textContent = '';
+  }
+
+  newAgenticGoalBtn?.addEventListener('click', () => {
+    void loadAgenticProjectOptions();
+    if (newAgenticGoalModal) newAgenticGoalModal.style.display = 'flex';
+  });
+  closeAgenticGoalModalBtn?.addEventListener('click', closeAgenticGoalModal);
+  newAgenticGoalModal?.addEventListener('click', (event) => {
+    if (event.target === newAgenticGoalModal) closeAgenticGoalModal();
+  });
+  refreshAgenticGoalsBtn?.addEventListener('click', () => void fetchAndRenderAgenticGoals());
+  newAgenticGoalForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!agenticGoalTitle || !agenticGoalObjective || !agenticGoalCriteria || !agenticGoalProject || !agenticGoalRuntime || !agenticGoalWeb) return;
+    if (agenticGoalFormStatus) agenticGoalFormStatus.textContent = 'Creating goal…';
+    try {
+      const response = await fetch('/api/agentic/goals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: agenticGoalTitle.value,
+          objective: agenticGoalObjective.value,
+          success_criteria_md: agenticGoalCriteria.value,
+          username: currentUser?.username || 'alex',
+          notebook_ids: agenticGoalProject.value ? [agenticGoalProject.value] : [],
+          web_access: agenticGoalWeb.checked,
+          max_steps: 12,
+          max_retries: 1,
+          max_runtime_minutes: Number(agenticGoalRuntime.value) || 30,
+          max_cost_usd: 5,
+          auto_start: true,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'Could not create goal');
+      selectedAgenticGoalId = data.id;
+      newAgenticGoalForm.reset();
+      if (agenticGoalCriteria) agenticGoalCriteria.value = 'Produce an evidence-grounded board brief with financial implications, feasibility, risks, unknowns, and recommended next steps.';
+      closeAgenticGoalModal();
+      await fetchAndRenderAgenticGoals();
+    } catch (error) {
+      if (agenticGoalFormStatus) agenticGoalFormStatus.textContent = error instanceof Error ? error.message : 'Could not create goal.';
+    }
+  });
+  window.setInterval(() => {
+    if (viewAgenticGoals?.style.display !== 'none') void fetchAndRenderAgenticGoals();
+  }, 3500);
+
+  // Project-scoped external source connectors and relevance-ranked signals.
+  const connectorList = document.getElementById('connector-instance-list') as HTMLDivElement | null;
+  const connectorStatus = document.getElementById('connector-status') as HTMLParagraphElement | null;
+  const signalGrid = document.getElementById('signal-card-grid') as HTMLDivElement | null;
+  const signalStatus = document.getElementById('signal-status') as HTMLParagraphElement | null;
+  const signalMinimumScore = document.getElementById('signal-minimum-score') as HTMLSelectElement | null;
+  const refreshConnectorsBtn = document.getElementById('refresh-connectors-btn') as HTMLButtonElement | null;
+  const newConnectorBtn = document.getElementById('new-connector-btn') as HTMLButtonElement | null;
+  const connectorModal = document.getElementById('connector-modal') as HTMLDivElement | null;
+  const closeConnectorModalBtn = document.getElementById('close-connector-modal-btn') as HTMLButtonElement | null;
+  const connectorForm = document.getElementById('connector-form') as HTMLFormElement | null;
+  const connectorName = document.getElementById('connector-name') as HTMLInputElement | null;
+  const connectorFeedUrl = document.getElementById('connector-feed-url') as HTMLInputElement | null;
+  const connectorInterest = document.getElementById('connector-interest-query') as HTMLTextAreaElement | null;
+  const connectorProject = document.getElementById('connector-project') as HTMLSelectElement | null;
+  const connectorPollMinutes = document.getElementById('connector-poll-minutes') as HTMLSelectElement | null;
+  const connectorMinimum = document.getElementById('connector-minimum-relevance') as HTMLInputElement | null;
+  const connectorMinimumOutput = document.getElementById('connector-minimum-output') as HTMLOutputElement | null;
+  const connectorFormStatus = document.getElementById('connector-form-status') as HTMLSpanElement | null;
+
+  function monitoringText(tag: string, className: string, value: unknown) {
+    const element = document.createElement(tag);
+    element.className = className;
+    element.textContent = String(value ?? '');
+    return element;
+  }
+
+  function monitoringTime(value: unknown) {
+    if (!value) return 'Not yet';
+    const date = new Date(String(value));
+    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+  }
+
+  async function loadMonitoringProjects() {
+    if (!connectorProject) return;
+    const selected = connectorProject.value;
+    try {
+      const response = await fetch('/api/notebooks');
+      const data = await response.json();
+      const projects = Array.isArray(data.notebooks) ? data.notebooks : [];
+      connectorProject.replaceChildren(new Option('Organization-wide', ''));
+      projects.forEach((project: any) => connectorProject.add(new Option(project.name || project.id, project.id)));
+      if (projects.some((project: any) => project.id === selected)) connectorProject.value = selected;
+    } catch (error) {
+      console.warn('Could not load connector project boundaries:', error);
+    }
+  }
+
+  async function setConnectorEnabled(instance: any, enabled: boolean) {
+    const response = await fetch(`/api/connectors/instances/${encodeURIComponent(instance.id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    });
+    if (!response.ok) throw new Error((await response.json()).detail || 'Could not update connector');
+    await loadConnectors();
+  }
+
+  async function syncConnector(instanceId: string, button?: HTMLButtonElement) {
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Syncing…';
+    }
+    try {
+      const response = await fetch(`/api/connectors/instances/${encodeURIComponent(instanceId)}/sync`, { method: 'POST' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'Feed synchronization failed');
+      await Promise.all([loadConnectors(), loadSignals()]);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Feed synchronization failed');
+      await loadConnectors();
+    }
+  }
+
+  async function loadConnectors() {
+    if (!connectorList) return;
+    if (connectorStatus) connectorStatus.textContent = 'Loading connectors…';
+    try {
+      const response = await fetch('/api/connectors/instances');
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'Could not load connectors');
+      const instances = Array.isArray(data.instances) ? data.instances : [];
+      connectorList.replaceChildren();
+      instances.forEach((instance: any) => {
+        const card = document.createElement('article');
+        card.className = 'connector-instance-card';
+        const header = document.createElement('header');
+        const health = monitoringText('span', `connector-health is-${instance.status || 'idle'}`, instance.status || 'idle');
+        header.append(monitoringText('strong', '', instance.name || 'RSS feed'), health);
+        const url = monitoringText('p', '', instance.config?.feed_url || 'Feed URL unavailable');
+        const interest = monitoringText('p', '', instance.interest_query ? `Monitoring: ${instance.interest_query}` : 'Monitoring every feed item');
+        const timing = monitoringText('small', '', `Last sync: ${monitoringTime(instance.last_sync_at)} · Next: ${monitoringTime(instance.next_sync_at)}`);
+        const actions = document.createElement('div');
+        actions.className = 'connector-instance-actions';
+        const sync = monitoringText('button', 'chip-btn btn-sm', 'Sync now') as HTMLButtonElement;
+        sync.type = 'button';
+        sync.disabled = instance.status === 'syncing';
+        sync.addEventListener('click', () => void syncConnector(instance.id, sync));
+        const toggle = monitoringText('button', 'chip-btn btn-sm', instance.enabled ? 'Pause' : 'Enable') as HTMLButtonElement;
+        toggle.type = 'button';
+        toggle.addEventListener('click', () => void setConnectorEnabled(instance, !instance.enabled).catch((error) => alert(error.message)));
+        actions.append(sync, toggle);
+        card.append(header, url, interest, timing);
+        if (instance.last_error) card.append(monitoringText('p', 'agentic-error', instance.last_error));
+        card.append(actions);
+        connectorList.appendChild(card);
+      });
+      if (!instances.length) connectorList.append(monitoringText('div', 'agentic-list-empty', 'No external sources yet. Connect a public RSS or Atom feed to begin monitoring.'));
+      if (connectorStatus) connectorStatus.textContent = `${instances.length} connected source${instances.length === 1 ? '' : 's'}`;
+    } catch (error) {
+      if (connectorStatus) connectorStatus.textContent = 'Connectors are unavailable. Check that the local kernel is running.';
+      console.warn('Could not load connectors:', error);
+    }
+  }
+
+  async function promoteSignal(signal: any, button: HTMLButtonElement) {
+    button.disabled = true;
+    button.textContent = 'Creating goal…';
+    try {
+      const response = await fetch(`/api/signals/${encodeURIComponent(signal.id)}/promote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: currentUser?.username || 'alex', auto_start: false }),
+      });
+      const goal = await response.json();
+      if (!response.ok) throw new Error(goal.detail || 'Could not create goal');
+      await loadSignals();
+      switchView('agentic-goals');
+      setAgentWorkMode('goals');
+      await fetchAndRenderAgenticGoals();
+      await selectAgenticGoal(goal.id);
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = 'Create assessment goal';
+      alert(error instanceof Error ? error.message : 'Could not create goal');
+    }
+  }
+
+  async function loadSignals() {
+    if (!signalGrid) return;
+    if (signalStatus) signalStatus.textContent = 'Loading signals…';
+    try {
+      const minimum = Number(signalMinimumScore?.value || 0);
+      const response = await fetch(`/api/signals?minimum_relevance=${minimum}&limit=100`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'Could not load signals');
+      const signals = Array.isArray(data.signals) ? data.signals : [];
+      signalGrid.replaceChildren();
+      signals.forEach((signal: any) => {
+        const card = document.createElement('article');
+        card.className = `signal-card${Number(signal.relevance_score) >= 70 ? ' is-high-relevance' : ''}`;
+        const header = document.createElement('header');
+        const source = monitoringText('div', 'signal-meta', `${signal.source_name || 'External source'} · ${monitoringTime(signal.published_at || signal.retrieved_at)}`);
+        header.append(source, monitoringText('span', 'signal-score', signal.relevance_score));
+        card.append(header, monitoringText('h4', '', signal.title || 'Untitled signal'));
+        card.append(monitoringText('p', '', signal.summary || signal.content || 'No summary supplied by the feed.'));
+        card.append(monitoringText('div', 'signal-reason', signal.relevance_reason || 'Relevance explanation unavailable.'));
+        const actions = document.createElement('div');
+        actions.className = 'signal-actions';
+        if (/^https?:\/\//i.test(signal.source_url || '')) {
+          const link = document.createElement('a');
+          link.href = signal.source_url;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = 'Open source';
+          actions.appendChild(link);
+        }
+        if (signal.promoted_goal_id) {
+          actions.append(monitoringText('span', 'signal-promoted', 'Assessment goal created'));
+        } else {
+          const promote = monitoringText('button', 'save-btn btn-sm', 'Create assessment goal') as HTMLButtonElement;
+          promote.type = 'button';
+          promote.addEventListener('click', () => void promoteSignal(signal, promote));
+          actions.appendChild(promote);
+        }
+        card.appendChild(actions);
+        signalGrid.appendChild(card);
+      });
+      if (!signals.length) signalGrid.append(monitoringText('div', 'agentic-list-empty', 'No matching signals yet. Connect or synchronize a source, or lower the relevance threshold.'));
+      if (signalStatus) signalStatus.textContent = `${signals.length} signal${signals.length === 1 ? '' : 's'} at relevance ${minimum}+`;
+    } catch (error) {
+      if (signalStatus) signalStatus.textContent = 'Signals are unavailable. Check that the local kernel is running.';
+      console.warn('Could not load signals:', error);
+    }
+  }
+
+  newConnectorBtn?.addEventListener('click', () => {
+    void loadMonitoringProjects();
+    if (connectorModal) connectorModal.style.display = 'flex';
+  });
+  closeConnectorModalBtn?.addEventListener('click', () => { if (connectorModal) connectorModal.style.display = 'none'; });
+  connectorModal?.addEventListener('click', (event) => { if (event.target === connectorModal) connectorModal.style.display = 'none'; });
+  connectorMinimum?.addEventListener('input', () => { if (connectorMinimumOutput) connectorMinimumOutput.value = connectorMinimum.value; });
+  signalMinimumScore?.addEventListener('change', () => void loadSignals());
+  refreshConnectorsBtn?.addEventListener('click', () => void Promise.all([loadConnectors(), loadSignals()]));
+  connectorForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!connectorName || !connectorFeedUrl || !connectorInterest || !connectorProject || !connectorPollMinutes || !connectorMinimum) return;
+    if (connectorFormStatus) connectorFormStatus.textContent = 'Connecting and checking the feed…';
+    try {
+      const response = await fetch('/api/connectors/instances', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: connectorName.value,
+          feed_url: connectorFeedUrl.value,
+          username: currentUser?.username || 'alex',
+          project_id: connectorProject.value,
+          interest_query: connectorInterest.value,
+          poll_minutes: Number(connectorPollMinutes.value),
+          minimum_relevance: Number(connectorMinimum.value),
+          enabled: true,
+        }),
+      });
+      const instance = await response.json();
+      if (!response.ok) throw new Error(instance.detail || 'Could not connect the feed');
+      await syncConnector(instance.id);
+      connectorForm.reset();
+      if (connectorMinimumOutput) connectorMinimumOutput.value = '40';
+      if (connectorModal) connectorModal.style.display = 'none';
+      if (connectorFormStatus) connectorFormStatus.textContent = '';
+    } catch (error) {
+      if (connectorFormStatus) connectorFormStatus.textContent = error instanceof Error ? error.message : 'Could not connect the feed';
+    }
+  });
+
+  window.addEventListener('ai-os-agent-event', (event: Event) => {
+    const detail = (event as CustomEvent).detail;
+    if (detail?.type === 'SIGNALS_UPDATED' && viewMonitoring?.style.display !== 'none') void Promise.all([loadConnectors(), loadSignals()]);
+    if (detail?.type === 'EMAIL_UPDATED' && detail.data?.username === currentUser?.username && viewEmail?.style.display !== 'none') {
+      void loadEmailCenter();
+    }
+  });
+
+  async function loadEmailCenter() {
+    if (!emailStatus || !emailMessageList || !emailDraftList || !emailPreview) return;
+    try {
+      const [statusResponse, messagesResponse, draftsResponse] = await Promise.all([
+        fetch('/api/email/status'), fetch('/api/email/messages'), fetch('/api/email/drafts'),
+      ]);
+      const status = await statusResponse.json();
+      if (!status.configured) {
+        emailStatus.textContent = 'Email is not configured. Add AGENTMAIL_API_KEY and AGENTMAIL_MANAGER_INBOX to the backend .env file.';
+      } else {
+        emailStatus.textContent = `Manager inbox: ${status.inbox_id} · Draft approval required`;
+      }
+      const messages = messagesResponse.ok ? (await messagesResponse.json()).messages || [] : [];
+      const drafts = draftsResponse.ok ? (await draftsResponse.json()).drafts || [] : [];
+      const sync = status.sync || {};
+      if (emailSyncInterval) emailSyncInterval.value = String(sync.poll_minutes ?? 15);
+      if (emailLastSync) emailLastSync.textContent = sync.last_error ? `Auto-sync issue: ${sync.last_error}` : (sync.last_synced_at ? `Last synced ${new Date(`${sync.last_synced_at}Z`).toLocaleString()}` : 'Not synced yet');
+      const inbound = messages.filter((message: any) => message.direction === 'inbound').length;
+      const pending = drafts.filter((draft: any) => draft.status === 'pending_approval').length;
+      if (emailSummary) emailSummary.innerHTML = `<span>${inbound} inbox message${inbound === 1 ? '' : 's'}</span><span>${pending} awaiting approval</span><span>${sync.poll_minutes ? `Auto-sync every ${sync.poll_minutes} min` : 'Manual sync'}</span>`;
+      if (!selectedEmailMessageId && messages[0]) selectedEmailMessageId = messages[0].message_id;
+      if (selectedEmailMessageId && !messages.some((message: any) => message.message_id === selectedEmailMessageId)) selectedEmailMessageId = messages[0]?.message_id || '';
+      emailMessageList.innerHTML = messages.length ? messages.map((message: any) => `<button class="email-message-item ${message.message_id === selectedEmailMessageId ? 'selected' : ''}" data-email-id="${escapeHtml(message.message_id)}" type="button"><span class="email-direction">${message.direction === 'inbound' ? 'IN' : 'OUT'}</span><span class="email-message-copy"><strong>${escapeHtml(message.subject || '(no subject)')}</strong><small>${escapeHtml(message.sender || '')}</small><em>${escapeHtml((message.text_body || '').slice(0, 100))}</em></span></button>`).join('') : '<p class="subtext">No synced messages yet.</p>';
+      const selected = messages.find((message: any) => message.message_id === selectedEmailMessageId);
+      emailPreview.innerHTML = selected ? `<div class="email-preview-header"><span class="email-direction">${selected.direction === 'inbound' ? 'INCOMING' : 'SENT'}</span><h3>${escapeHtml(selected.subject || '(no subject)')}</h3><p>From ${escapeHtml(selected.sender || 'Unknown sender')}</p></div><div class="email-preview-body">${escapeHtml(selected.text_body || 'No message body.').replace(/\n/g, '<br>')}</div><div class="email-preview-actions"><button class="chip-btn email-create-task-btn" data-email-id="${escapeHtml(selected.message_id)}" type="button">Create task</button><button class="save-btn email-reply-btn" data-email-id="${escapeHtml(selected.message_id)}" type="button">Draft reply</button></div>` : '<div class="email-empty-state"><strong>Select an email</strong><span>Read the message, then create work or prepare a reply.</span></div>';
+      emailDraftList.innerHTML = drafts.length ? drafts.map((draft: any) => `<article class="email-draft-card"><span>${escapeHtml(draft.status.replace('_', ' '))}</span><strong>${escapeHtml(draft.subject || 'Reply draft')}</strong><p>${escapeHtml(draft.text_body || '').slice(0, 220)}</p>${draft.status === 'pending_approval' ? `<div class="email-draft-actions"><button class="save-btn email-send-draft-btn" data-draft-id="${escapeHtml(draft.draft_id)}" type="button">Approve & send</button><button class="cancel-btn email-reject-draft-btn" data-draft-id="${escapeHtml(draft.draft_id)}" type="button">Reject</button></div>` : ''}</article>`).join('') : '<div class="email-empty-state"><strong>No drafts awaiting approval</strong><span>AI-prepared replies will appear here for your review.</span></div>';
+    } catch (error) {
+      emailStatus.textContent = error instanceof Error ? error.message : 'Could not load Email Center.';
+    }
+  }
+
+  async function emailAction(url: string, options: RequestInit = {}) {
+    const response = await fetch(url, options);
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.detail || 'Email action failed');
+    await loadEmailCenter();
+  }
+
+  emailSyncBtn?.addEventListener('click', () => void emailAction('/api/email/sync', { method: 'POST' }).catch(error => { if (emailStatus) emailStatus.textContent = error.message; }));
+  emailSyncInterval?.addEventListener('change', () => {
+    void fetch('/api/email/sync-preferences', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ poll_minutes: Number(emailSyncInterval.value) }) })
+      .then(async response => { const payload = await response.json(); if (!response.ok) throw new Error(payload.detail || 'Could not save auto-sync preference'); await loadEmailCenter(); })
+      .catch(error => { if (emailStatus) emailStatus.textContent = error instanceof Error ? error.message : 'Could not save auto-sync preference'; });
+  });
+  emailMessageList?.addEventListener('click', (event) => {
+    const button = (event.target as HTMLElement).closest('button') as HTMLButtonElement | null;
+    const messageId = button?.dataset.emailId;
+    if (!button || !messageId) return;
+    if (button.classList.contains('email-message-item')) {
+      selectedEmailMessageId = messageId;
+      void loadEmailCenter();
+    } else if (button.classList.contains('email-create-task-btn')) {
+      void emailAction(`/api/email/messages/${encodeURIComponent(messageId)}/create-task`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) }).catch(error => { if (emailStatus) emailStatus.textContent = error.message; });
+    } else if (button.classList.contains('email-reply-btn')) {
+      const text = window.prompt('Draft reply text');
+      if (text) void emailAction('/api/email/drafts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, in_reply_to: messageId }) }).catch(error => { if (emailStatus) emailStatus.textContent = error.message; });
+    }
+  });
+  emailPreview?.addEventListener('click', (event) => {
+    const button = (event.target as HTMLElement).closest('button') as HTMLButtonElement | null;
+    if (!button) return;
+    const messageId = button.dataset.emailId;
+    if (!messageId) return;
+    if (button.classList.contains('email-create-task-btn')) void emailAction(`/api/email/messages/${encodeURIComponent(messageId)}/create-task`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) }).catch(error => { if (emailStatus) emailStatus.textContent = error.message; });
+    if (button.classList.contains('email-reply-btn')) { const text = window.prompt('Draft reply text'); if (text) void emailAction('/api/email/drafts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, in_reply_to: messageId }) }).catch(error => { if (emailStatus) emailStatus.textContent = error.message; }); }
+  });
+  emailDraftList?.addEventListener('click', (event) => {
+    const button = (event.target as HTMLElement).closest('button') as HTMLButtonElement | null;
+    const draftId = button?.dataset.draftId;
+    if (!button || !draftId) return;
+    const suffix = button.classList.contains('email-send-draft-btn') ? 'approve-send' : 'reject';
+    if (suffix !== 'approve-send' || window.confirm('Send this approved draft externally?')) void emailAction(`/api/email/drafts/${encodeURIComponent(draftId)}/${suffix}`, { method: 'POST' }).catch(error => { if (emailStatus) emailStatus.textContent = error.message; });
+  });
+
+  function switchView(target: 'dashboard' | 'mvp-showcase' | 'customization' | 'ingestion' | 'habitat' | 'kanban' | 'agent-logs' | 'agentic-goals' | 'monitoring' | 'email') {
     tabDashboard.classList.remove('active');
     if (tabMvpShowcase) tabMvpShowcase.classList.remove('active');
     if (tabCustomization) tabCustomization.classList.remove('active');
     if (tabIngestion) tabIngestion.classList.remove('active');
     if (tabHabitat) tabHabitat.classList.remove('active');
     if (tabKanbanHeader) tabKanbanHeader.classList.remove('active');
+    if (tabAgenticGoals) tabAgenticGoals.classList.remove('active');
+    if (tabMonitoring) tabMonitoring.classList.remove('active');
+    if (tabEmail) tabEmail.classList.remove('active');
     if (tabAgentLogs) tabAgentLogs.classList.remove('active');
 
     viewDashboard.style.display = target === 'dashboard' ? 'block' : 'none';
@@ -353,7 +1108,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (viewCustomization) viewCustomization.style.display = target === 'customization' ? 'flex' : 'none';
     if (viewIngestion) viewIngestion.style.display = target === 'ingestion' ? 'flex' : 'none';
     if (viewHabitat) viewHabitat.style.display = target === 'habitat' ? 'flex' : 'none';
-    if (viewKanbanPage) viewKanbanPage.style.display = target === 'kanban' ? 'block' : 'none';
+    if (viewKanbanPage) viewKanbanPage.style.display = 'none';
+    if (viewAgenticGoals) viewAgenticGoals.style.display = target === 'agentic-goals' || target === 'kanban' ? 'block' : 'none';
+    if (viewMonitoring) viewMonitoring.style.display = target === 'monitoring' ? 'block' : 'none';
+    if (viewEmail) viewEmail.style.display = target === 'email' ? 'block' : 'none';
     if (viewAgentLogs) viewAgentLogs.style.display = target === 'agent-logs' ? 'block' : 'none';
 
     if (target === 'dashboard') {
@@ -364,25 +1122,35 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tabCustomization) tabCustomization.classList.add('active');
       fetchAndRenderAgentPrompts();
       loadAgentConfiguration();
-      updateLivePromptInspector();
       fetchAndRenderProviderRegistry();
       fetchAndRenderApiUsage();
-          // @ts-ignore
-      if (typeof fetchDBTables === 'function') fetchDBTables();
+      fetchDBTables();
     } else if (target === 'ingestion') {
       if (tabIngestion) tabIngestion.classList.add('active');
       fetchDBTables();
     } else if (target === 'habitat') {
       if (tabHabitat) tabHabitat.classList.add('active');
-      visualizer.resizeCanvas();
+      setTimeout(() => {
+        visualizer.resizeCanvas();
+      }, 50);
       fetchAndRenderAgentPrompts();
       loadAgentConfiguration();
     } else if (target === 'agent-logs') {
       if (tabAgentLogs) tabAgentLogs.classList.add('active');
       void fetchAndRenderAgentLogs();
+    } else if (target === 'agentic-goals') {
+      if (tabAgenticGoals) tabAgenticGoals.classList.add('active');
+      setAgentWorkMode('goals');
+      void fetchAndRenderAgenticGoals();
+    } else if (target === 'monitoring') {
+      if (tabMonitoring) tabMonitoring.classList.add('active');
+      void Promise.all([loadConnectors(), loadSignals()]);
+    } else if (target === 'email') {
+      if (tabEmail) tabEmail.classList.add('active');
+      void loadEmailCenter();
     } else if (target === 'kanban') {
-      if (tabKanbanHeader) tabKanbanHeader.classList.add('active');
-      void fetchAndRenderKanbanTasks();
+      if (tabAgenticGoals) tabAgenticGoals.classList.add('active');
+      setAgentWorkMode('board');
     }
   }
 
@@ -392,9 +1160,11 @@ document.addEventListener('DOMContentLoaded', () => {
   if (tabIngestion) tabIngestion.addEventListener('click', () => switchView('ingestion'));
   if (tabHabitat) tabHabitat.addEventListener('click', () => switchView('habitat'));
   if (tabKanbanHeader) tabKanbanHeader.addEventListener('click', () => switchView('kanban'));
+  if (tabAgenticGoals) tabAgenticGoals.addEventListener('click', () => switchView('agentic-goals'));
+  if (tabMonitoring) tabMonitoring.addEventListener('click', () => switchView('monitoring'));
+  if (tabEmail) tabEmail.addEventListener('click', () => switchView('email'));
   if (tabAgentLogs) tabAgentLogs.addEventListener('click', () => switchView('agent-logs'));
   if (refreshAgentLogsBtn) refreshAgentLogsBtn.addEventListener('click', () => void fetchAndRenderAgentLogs());
-  if (btnGoIngestion) btnGoIngestion.addEventListener('click', () => switchView('ingestion'));
   if (backToDashboardBtn) backToDashboardBtn.addEventListener('click', () => switchView('dashboard'));
 
   // Supervisor-facing MVP showcase. All interactions are local, illustrative UI only.
@@ -431,16 +1201,58 @@ document.addEventListener('DOMContentLoaded', () => {
   mvpConfigTab?.addEventListener('click', () => showMvpPanel('config'));
   mvpConnectTab?.addEventListener('click', () => showMvpPanel('connect'));
 
-  mvpRunDemoBtn?.addEventListener('click', () => {
+  const mvpLiveSignalList = document.getElementById('mvp-live-signal-list') as HTMLDivElement | null;
+  const mvpLiveSignalCount = document.getElementById('mvp-live-signal-count') as HTMLSpanElement | null;
+  const mvpKpi = (id: string, value: number, max = 10) => { const valueEl = document.getElementById(`mvp-kpi-${id}`); const bar = document.getElementById(`mvp-kpi-${id}-bar`) as HTMLElement | null; if (valueEl) valueEl.textContent = String(value); if (bar) bar.style.width = `${Math.min(100, Math.round((value / Math.max(1, max)) * 100))}%`; };
+  const relativeTime = (value: unknown) => {
+    const date = new Date(String(value || ''));
+    const minutes = Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
+    if (Number.isNaN(minutes)) return 'Recently';
+    if (minutes < 60) return `${minutes || 1}m ago`;
+    if (minutes < 1440) return `${Math.round(minutes / 60)}h ago`;
+    return `${Math.round(minutes / 1440)}d ago`;
+  };
+  async function loadMvpLiveSignals() {
+    if (!mvpLiveSignalList) return;
+    try {
+      const [signalResponse, connectorResponse, goalResponse] = await Promise.all([fetch('/api/signals?minimum_relevance=0&limit=100'), fetch('/api/connectors/instances'), fetch('/api/agentic/goals?limit=100')]);
+      const data = await signalResponse.json();
+      const connectorData = await connectorResponse.json();
+      const goalData = await goalResponse.json();
+      if (!signalResponse.ok) throw new Error(data.detail || 'Could not load live signals');
+      const signals = Array.isArray(data.signals) ? data.signals : [];
+      const sources = Array.isArray(connectorData.instances) ? connectorData.instances : [];
+      const goals = Array.isArray(goalData.goals) ? goalData.goals : [];
+      mvpKpi('sources', sources.length, 6); mvpKpi('signals', signals.length, 50); mvpKpi('high', signals.filter((item: any) => Number(item.relevance_score) >= 70).length, Math.max(1, signals.length)); mvpKpi('goals', goals.length, 10);
+      mvpLiveSignalList.replaceChildren();
+      signals.slice(0, 3).forEach((signal: any, index: number) => {
+        const card = document.createElement('article');
+        card.className = `mvp-signal-card${index === 0 ? ' featured' : ''}`;
+        const top = document.createElement('div'); top.className = 'mvp-signal-top';
+        top.append(monitoringText('span', 'mvp-source-pill', signal.source_name || 'RSS source'), monitoringText('span', '', relativeTime(signal.published_at || signal.retrieved_at)));
+        card.append(top, monitoringText('h4', '', signal.title || 'Untitled signal'), monitoringText('p', '', signal.summary || signal.content || 'No summary was provided.'));
+        const footer = document.createElement('div'); footer.className = 'mvp-signal-footer';
+        footer.append(monitoringText('span', '', `Relevance ${signal.relevance_score || 0}%`));
+        if (/^https?:\/\//i.test(signal.source_url || '')) { const link = document.createElement('a'); link.className = 'mvp-text-action'; link.href = signal.source_url; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.textContent = 'Read source'; footer.append(link); }
+        card.append(footer); mvpLiveSignalList.append(card);
+      });
+      if (!signals.length) mvpLiveSignalList.append(monitoringText('p', 'subtext', 'No live signals yet. Add the free RSS starter pack, then allow the first sync to complete.'));
+      if (mvpLiveSignalCount) mvpLiveSignalCount.textContent = `${signals.length} live signal${signals.length === 1 ? '' : 's'}`;
+      if (mvpDemoStatus) mvpDemoStatus.textContent = signals.length ? 'Live RSS signals ready' : 'RSS starter pack not connected';
+    } catch { if (mvpDemoStatus) mvpDemoStatus.textContent = 'Live sources unavailable'; }
+  }
+  mvpRunDemoBtn?.addEventListener('click', async () => {
     if (!mvpDemoStatus || !mvpRunDemoBtn) return;
-    mvpRunDemoBtn.disabled = true;
-    mvpDemoStatus.textContent = 'Scanning 24 configured sources...';
-    window.setTimeout(() => {
-      mvpDemoStatus.textContent = '18 signals · 4 opportunities · brief ready';
-      mvpRunDemoBtn.textContent = 'Demo scan complete';
-      mvpRunDemoBtn.disabled = false;
-    }, 900);
+    mvpRunDemoBtn.disabled = true; mvpDemoStatus.textContent = 'Connecting free sources and starting their first sync…';
+    try {
+      const response = await fetch('/api/connectors/recommended/add', { method: 'POST' }); const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'Could not connect recommended feeds');
+      mvpDemoStatus.textContent = data.count ? `${data.count} free feeds connected · syncing now` : 'Starter pack already connected · refreshing live wall';
+      window.setTimeout(() => void loadMvpLiveSignals(), 2500);
+    } catch (error) { mvpDemoStatus.textContent = error instanceof Error ? error.message : 'Could not connect sources'; }
+    finally { mvpRunDemoBtn.disabled = false; }
   });
+  void loadMvpLiveSignals();
 
   function buildMvpContextPreview() {
     if (mvpPreviewGoal && mvpGoalInput) mvpPreviewGoal.textContent = mvpGoalInput.value.trim() || 'No goal configured';
@@ -577,7 +1389,7 @@ document.addEventListener('DOMContentLoaded', () => {
     projectCompanySelect.replaceChildren();
     const internal = document.createElement('option');
     internal.value = '';
-    internal.textContent = 'Forest Joensuu internal project';
+    internal.textContent = 'Internal project';
     projectCompanySelect.appendChild(internal);
     partnerCompanies.forEach((company) => {
       const option = document.createElement('option');
@@ -602,7 +1414,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!partnerCompanies.length) {
       const empty = document.createElement('p');
       empty.className = 'business-context-empty';
-      empty.textContent = 'No partner companies yet. Internal Forest Joensuu projects do not need one.';
+      empty.textContent = 'No partner companies yet. Internal projects do not need one.';
       partnerCompanyList.appendChild(empty);
       return;
     }
@@ -612,7 +1424,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const content = document.createElement('div');
       content.className = 'partner-company-item-content';
-      
+
       const title = document.createElement('strong');
       title.textContent = company.name;
       const detail = document.createElement('span');
@@ -624,7 +1436,7 @@ document.addEventListener('DOMContentLoaded', () => {
       deleteBtn.className = 'partner-company-delete-btn';
       deleteBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>';
       deleteBtn.title = 'Delete company';
-      
+
       deleteBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         if (!confirm(`Are you sure you want to delete ${company.name}?`)) return;
@@ -649,7 +1461,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (partnerCompanySaveBtn) partnerCompanySaveBtn.textContent = 'Update partner company';
         if (partnerCompanyStatus) partnerCompanyStatus.textContent = `Editing ${company.name}`;
       });
-      
+
       item.append(content, deleteBtn);
       partnerCompanyList.appendChild(item);
     });
@@ -662,15 +1474,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const payload = await response.json();
       const organization = payload.organization || {};
       partnerCompanies = Array.isArray(payload.companies) ? payload.companies : [];
-      if (organizationContextName) organizationContextName.value = organization.name || 'Forest Joensuu';
+      if (organizationContextName) organizationContextName.value = organization.name || 'The Company';
       if (organizationContextMission) organizationContextMission.value = organization.mission_md || '';
       if (organizationContextPriorities) organizationContextPriorities.value = organization.priorities_md || '';
       if (organizationContextConstraints) organizationContextConstraints.value = organization.constraints_md || '';
       if (organizationContextPrinciples) organizationContextPrinciples.value = organization.decision_principles_md || '';
       if (businessContextSummary) {
         businessContextSummary.textContent = organization.mission_md || organization.priorities_md || organization.constraints_md
-          ? `${organization.name || 'Forest Joensuu'} DNA active · ${partnerCompanies.length} partner ${partnerCompanies.length === 1 ? 'company' : 'companies'}`
-          : 'Add Forest Joensuu DNA to guide every project answer';
+          ? `${organization.name || 'The Company'} DNA active · ${partnerCompanies.length} partner ${partnerCompanies.length === 1 ? 'company' : 'companies'}`
+          : 'Add Organization DNA to guide every project answer';
       }
       renderPartnerCompanyOptions(projectCompanySelect?.value || '');
       renderPartnerCompanyList();
@@ -712,10 +1524,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (openDnaContextBtn) openDnaContextBtn.addEventListener('click', () => void openDnaContext());
   if (openCompaniesContextBtn) openCompaniesContextBtn.addEventListener('click', () => void openCompaniesContext());
-  
+
   if (closeDnaContextBtn) closeDnaContextBtn.addEventListener('click', closeBusinessContext);
   if (closeCompaniesContextBtn) closeCompaniesContextBtn.addEventListener('click', closeBusinessContext);
-  
+
   if (dnaContextModal) dnaContextModal.addEventListener('click', (event) => {
     if (event.target === dnaContextModal) closeBusinessContext();
   });
@@ -724,12 +1536,12 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   if (organizationContextForm) organizationContextForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    if (organizationContextStatus) organizationContextStatus.textContent = 'Saving Forest Joensuu DNA…';
+    if (organizationContextStatus) organizationContextStatus.textContent = 'Saving Organization DNA…';
     try {
       const response = await fetch(`${businessContextApiBase()}/api/business-context/organization`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: organizationContextName?.value || 'Forest Joensuu',
+          name: organizationContextName?.value || 'The Company',
           mission_md: organizationContextMission?.value || '',
           priorities_md: organizationContextPriorities?.value || '',
           constraints_md: organizationContextConstraints?.value || '',
@@ -737,10 +1549,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }),
       });
       if (!response.ok) throw new Error(await response.text());
-      if (organizationContextStatus) organizationContextStatus.textContent = 'Forest Joensuu DNA saved.';
+      if (organizationContextStatus) organizationContextStatus.textContent = 'Organization DNA saved.';
       await loadBusinessContext();
     } catch (error) {
-      if (organizationContextStatus) organizationContextStatus.textContent = error instanceof Error ? error.message : 'Could not save Forest Joensuu DNA.';
+      if (organizationContextStatus) organizationContextStatus.textContent = error instanceof Error ? error.message : 'Could not save Organization DNA.';
     }
   });
   if (partnerCompanyForm) partnerCompanyForm.addEventListener('submit', async (event) => {
@@ -863,9 +1675,15 @@ document.addEventListener('DOMContentLoaded', () => {
           remove.title = 'Remove source from this project. The original document is preserved.';
           remove.addEventListener('click', async () => {
             if (!activeProjectId || !confirm(`Remove ${fileName} from this project?`)) return;
-            await fetch(`/api/notebooks/${encodeURIComponent(activeProjectId)}/documents/${encodeURIComponent(fileName)}`, { method: 'DELETE' });
-            selectedSources.delete(fileName);
-            await refreshNotebookWorkspace?.();
+            try {
+              const res = await fetch(`/api/notebooks/${encodeURIComponent(activeProjectId)}/documents/${encodeURIComponent(fileName)}`, { method: 'DELETE' });
+              if (!res.ok) throw new Error(await res.text());
+              selectedSources.delete(fileName);
+              await refreshNotebookWorkspace?.();
+            } catch (err) {
+              console.error('Failed to remove document source:', err);
+              alert(`Could not remove document: ${err instanceof Error ? err.message : 'network error'}`);
+            }
           });
           item.append(sourceCheckbox, name, remove);
           notebookSourcesList.appendChild(item);
@@ -975,16 +1793,16 @@ document.addEventListener('DOMContentLoaded', () => {
           documentNames.forEach((fileName) => {
             const file = document.createElement('div');
             file.className = 'project-tree-file-item';
-            
+
             const fileIcon = document.createElement('span');
             fileIcon.className = 'project-tree-icon';
             fileIcon.innerHTML = '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>';
-            
+
             const name = document.createElement('span');
             name.className = 'project-tree-title';
             name.textContent = fileName;
             name.title = `${fileName} is included whenever ${project.name} is selected.`;
-            
+
             const remove = document.createElement('button');
             remove.type = 'button';
             remove.className = 'project-tree-action-btn';
@@ -993,10 +1811,16 @@ document.addEventListener('DOMContentLoaded', () => {
             remove.addEventListener('click', async (e) => {
               e.stopPropagation();
               if (!confirm(`Remove ${fileName} from ${project.name}?`)) return;
-              await fetch(`/api/notebooks/${encodeURIComponent(project.id)}/documents/${encodeURIComponent(fileName)}`, { method: 'DELETE' });
-              await refreshNotebookWorkspace?.();
+              try {
+                const res = await fetch(`/api/notebooks/${encodeURIComponent(project.id)}/documents/${encodeURIComponent(fileName)}`, { method: 'DELETE' });
+                if (!res.ok) throw new Error(await res.text());
+                await refreshNotebookWorkspace?.();
+              } catch (err) {
+                console.error('Failed to remove document from project:', err);
+                alert(`Could not remove document: ${err instanceof Error ? err.message : 'network error'}`);
+              }
             });
-            
+
             file.append(fileIcon, name, remove);
             files.appendChild(file);
           });
@@ -1106,10 +1930,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (!response.ok) throw new Error(await response.text());
         const created = await response.json();
-        activeProjectId = created.notebook_id;
+        const createdProjectId = String(created.notebook_id || '');
+        if (!createdProjectId) throw new Error('Kernel did not return a project ID.');
+        activeProjectId = createdProjectId;
         selectedProjectIds.clear();
-        selectedProjectIds.add(activeProjectId);
-        selectedSourcesByProject.set(activeProjectId, new Set());
+        selectedProjectIds.add(createdProjectId);
+        selectedSourcesByProject.set(createdProjectId, new Set());
         closeProjectWorkspace();
         await refreshNotebookWorkspace?.();
       } catch (error) {
@@ -1129,12 +1955,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (agentId) visualizer.focusAgent(agentId);
     });
   });
-
-  const btnWorkAll = document.getElementById('btn-work-all');
-  if (btnWorkAll) btnWorkAll.addEventListener('click', () => visualizer.sendAllToWork());
-
-  const btnLoungeAll = document.getElementById('btn-lounge-all');
-  if (btnLoungeAll) btnLoungeAll.addEventListener('click', () => visualizer.sendAllToLounge());
 
   // Task Dispatcher Board Wiring
   document.querySelectorAll('.btn-dispatch-task').forEach(btn => {
@@ -1170,86 +1990,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   });
-  // ==========================================================================
-  // HERMES 3-TIER PROMPT STUDIO & LIVE INSPECTOR LOGIC
-  // ==========================================================================
-  const tmplSelect = document.getElementById('tmpl-select') as HTMLSelectElement;
-  const promptCodeInspector = document.getElementById('prompt-code-inspector') as HTMLPreElement;
-  const tierTabBtns = document.querySelectorAll('.tier-tab-btn') as NodeListOf<HTMLButtonElement>;
-  const tierTextInput = document.getElementById('tier-text-input') as HTMLTextAreaElement;
-  const toneSelectPage = document.getElementById('tone-select-page') as HTMLSelectElement;
-  const tempSlider = document.getElementById('temp-slider') as HTMLInputElement;
-  const tempValDisplay = document.getElementById('temp-val-display') as HTMLSpanElement;
-  const customDirectivesPage = document.getElementById('custom-directives-page') as HTMLTextAreaElement;
-  const tierContentStore: Record<string, string> = {
-    soul: `[SOUL.md - Permanently Cached Agent Identity]\nYou are the Strategic AI Board Member for Business Joensuu & North Karelia, Finland.\nCore Mission: Drive private-sector job creation (1,000 tech jobs by 2026), accelerate Susicorn venture scaling, and maximize inward VC capital.\nGuardrails: Maintain strict data confidentiality, high financial accuracy, and actionable strategic advice.`,
-    user: `[USER.md - Human Caller Profile & Contract]\nUser: Alex Virtanen (Executive Board Lead)\nRole: Business Joensuu Board Director\nTone Preference: Formal Executive & Strategic\nContract: Keep introductory pleasantries brief; deliver bulleted scorecards with high strategic ROI.`,
-    memory: `[MEMORY.md - Durable Curated Regional Facts]\nFact 1: Joensuu target bio-cluster active companies = 4 Susicorn ventures.\nFact 2: Current jobs created in bio-innovations = 420 of 1,000 target.\nFact 3: Inward VC dealflow target = €€€15.0M capital injection.`
-  };
-  let activeTier = 'soul';
-  if (tierTextInput) tierTextInput.value = tierContentStore[activeTier];
-  tierTabBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      tierTabBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      activeTier = btn.getAttribute('data-tier') || 'soul';
-      if (tierTextInput) tierTextInput.value = tierContentStore[activeTier] || '';
-      updateLivePromptInspector();
-    });
-  });
-
-  if (tierTextInput) {
-    tierTextInput.addEventListener('input', () => {
-      tierContentStore[activeTier] = tierTextInput.value;
-      updateLivePromptInspector();
-    });
-  }
-
-  if (tempSlider && tempValDisplay) {
-    tempSlider.addEventListener('input', () => {
-      tempValDisplay.textContent = parseFloat(tempSlider.value).toFixed(2);
-      updateLivePromptInspector();
-    });
-  }
-
-  if (tmplSelect) {
-    tmplSelect.addEventListener('change', () => {
-      const selectedAgent = tmplSelect.value;
-      if (loadedPromptsCache[selectedAgent] && tierTextInput) {
-        tierTextInput.value = loadedPromptsCache[selectedAgent].system_prompt || '';
-      }
-      updateLivePromptInspector();
-    });
-  }
-
-  if (toneSelectPage) toneSelectPage.addEventListener('change', updateLivePromptInspector);
-  if (customDirectivesPage) customDirectivesPage.addEventListener('input', updateLivePromptInspector);
-
-  async function updateLivePromptInspector() {
-    if (!promptCodeInspector) return;
-    const targetAgent = habitatAgentSelect ? habitatAgentSelect.value : (tmplSelect ? tmplSelect.value : 'ManagerAgent');
-    let agentData = loadedPromptsCache[targetAgent];
-    if (!agentData) {
-      promptCodeInspector.textContent = `Streaming system prompt for ${targetAgent} from local SQLite...`;
-      try {
-        const res = await fetch('/api/agents/prompts');
-        if (res.ok) {
-          const data = await res.json();
-          loadedPromptsCache = data.prompts || {};
-          agentData = loadedPromptsCache[targetAgent];
-        }
-      } catch (e) {
-        console.warn("Could not fetch prompts for streaming inspector:", e);
-      }
-    }
-    const systemPromptText = (agentData && agentData.system_prompt) || '';
-    promptCodeInspector.textContent = systemPromptText;
-  }
-
-  // ==========================================================================
   // LOGIN PORTAL LOGIC
   // ==========================================================================
-  let currentUser: UserProfile | null = null;
+  // Note: currentUser is initialized at top of DOMContentLoaded scope
   const loginModal = document.getElementById('login-modal');
   const loginForm = document.getElementById('login-form') as HTMLFormElement;
   const loginUsername = document.getElementById('login-username') as HTMLInputElement;
@@ -1257,9 +2000,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const loginError = document.getElementById('login-error');
   const userBadge = document.getElementById('user-badge');
   const userNameDisplay = document.getElementById('user-name-display');
-  const logoutBtn = document.getElementById('logout-btn');
   const connectionStatus = document.getElementById('connection-status');
   const exitMvpShowcaseBtn = document.getElementById('mvp-exit-showcase-btn') as HTMLButtonElement | null;
+  const passwordChangeModal = document.getElementById('password-change-modal') as HTMLDivElement | null;
+  const passwordChangeForm = document.getElementById('password-change-form') as HTMLFormElement | null;
+  const currentPasswordInput = document.getElementById('current-password') as HTMLInputElement | null;
+  const newPasswordInput = document.getElementById('new-password') as HTMLInputElement | null;
+  const confirmNewPasswordInput = document.getElementById('confirm-new-password') as HTMLInputElement | null;
+  const passwordChangeStatus = document.getElementById('password-change-status');
+  const closePasswordChangeButton = document.getElementById('close-password-change-btn') as HTMLButtonElement | null;
 
   const setAuthenticated = (authenticated: boolean) => {
     if (appShell) appShell.classList.toggle('authenticated', authenticated);
@@ -1271,42 +2020,134 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   setAuthenticated(false);
 
-  /* Removed duplicate mock-data login bypass.
-    setAuthenticated(true);
-    if (loginModal) loginModal.style.display = 'none';
-    if (userBadge) userBadge.style.display = 'none';
-    if (connectionStatus) {
-      connectionStatus.textContent = 'Prototype · Mock data';
-      connectionStatus.className = 'status-online';
+  const signOut = async (notifyServer = true) => {
+    if (notifyServer && sessionStorage.getItem(AUTH_TOKEN_KEY)) {
+      try {
+        await fetch('/api/auth/logout', { method: 'POST' });
+      } catch {
+        // Local cleanup still signs the user out when the kernel is unavailable.
+      }
     }
-    switchView('mvp-showcase');
-  */
-
-  exitMvpShowcaseBtn?.addEventListener('click', () => {
+    sessionStorage.removeItem(AUTH_TOKEN_KEY);
     currentUser = null;
     activeChatSessionId = null;
+    void refreshChatSessionSidebar?.();
     setAuthenticated(false);
     switchView('dashboard');
     if (loginModal) loginModal.style.display = 'flex';
     if (userBadge) userBadge.style.display = 'none';
+    if (passwordChangeModal) passwordChangeModal.style.display = 'none';
     if (loginError) loginError.style.display = 'none';
     if (connectionStatus) {
       connectionStatus.textContent = '● Kernel Offline';
       connectionStatus.className = 'status-offline';
     }
+  };
+
+  exitMvpShowcaseBtn?.addEventListener('click', () => void signOut());
+  window.addEventListener('ai-os-auth-expired', () => void signOut(false));
+
+  const completeAuthentication = (user: UserProfile) => {
+    currentUser = user;
+    if (currentUser.language) {
+      setLanguage(currentUser.language as 'en' | 'fi');
+      updateLangToggleUI();
+    }
+    activeChatSessionId = null;
+    void refreshChatSessionSidebar?.();
+    setAuthenticated(true);
+    if (loginModal) loginModal.style.display = 'none';
+    if (userBadge) userBadge.style.display = 'flex';
+    if (userNameDisplay) userNameDisplay.textContent = `👤 ${currentUser.display_name}`;
+    if (connectionStatus) {
+      connectionStatus.textContent = '● Kernel Online';
+      connectionStatus.className = 'status-online';
+    }
+    switchView('dashboard');
+  };
+
+  async function restoreAuthentication() {
+    if (!sessionStorage.getItem(AUTH_TOKEN_KEY)) return;
+    try {
+      const response = await fetch('/api/auth/me');
+      if (!response.ok) throw new Error('Session expired');
+      const payload = await response.json();
+      completeAuthentication(payload.user);
+    } catch {
+      sessionStorage.removeItem(AUTH_TOKEN_KEY);
+      setAuthenticated(false);
+      if (loginModal) loginModal.style.display = 'flex';
+    }
+  }
+  void restoreAuthentication();
+
+  const closePasswordChange = () => {
+    if (passwordChangeModal) passwordChangeModal.style.display = 'none';
+    passwordChangeForm?.reset();
+    if (passwordChangeStatus) passwordChangeStatus.textContent = '';
+  };
+  userBadge?.addEventListener('click', () => {
+    if (passwordChangeModal) passwordChangeModal.style.display = 'flex';
+    currentPasswordInput?.focus();
+  });
+  closePasswordChangeButton?.addEventListener('click', closePasswordChange);
+  passwordChangeModal?.addEventListener('click', (event) => {
+    if (event.target === passwordChangeModal) closePasswordChange();
+  });
+  passwordChangeForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!currentPasswordInput || !newPasswordInput || !confirmNewPasswordInput || !passwordChangeStatus) return;
+    if (newPasswordInput.value !== confirmNewPasswordInput.value) {
+      passwordChangeStatus.textContent = 'The new passwords do not match.';
+      return;
+    }
+    passwordChangeStatus.textContent = 'Updating…';
+    try {
+      const response = await fetch('/api/auth/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_password: currentPasswordInput.value, new_password: newPasswordInput.value }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.detail || 'Password could not be changed.');
+      }
+      passwordChangeStatus.textContent = 'Password updated. Signing you out…';
+      window.setTimeout(() => void signOut(false), 1200);
+    } catch (error) {
+      passwordChangeStatus.textContent = error instanceof Error ? error.message : 'Password could not be changed.';
+    }
   });
 
-  // Quick profile select buttons
+  // Quick profile select buttons enter the MVP immediately; password sign-in remains
+  // available below for the regular credential-based flow.
   document.querySelectorAll('.chip-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const u = btn.getAttribute('data-user');
-      const p = btn.getAttribute('data-pass');
-      if (u && p && loginUsername && loginPassword) {
-        loginUsername.value = u;
-        loginPassword.value = p;
-        if (loginForm) {
-          loginForm.requestSubmit();
+      if (!u) return;
+
+      if (loginError) loginError.style.display = 'none';
+      const profileButton = btn as HTMLButtonElement;
+      profileButton.disabled = true;
+      try {
+        const res = await fetch('/api/auth/quick-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: u })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.access_token) {
+          throw new Error(data.detail || 'Profile could not be opened.');
         }
+        sessionStorage.setItem(AUTH_TOKEN_KEY, data.access_token);
+        completeAuthentication(data.user);
+      } catch (error) {
+        if (loginError) {
+          loginError.textContent = error instanceof Error ? error.message : 'Profile could not be opened.';
+          loginError.style.display = 'block';
+        }
+      } finally {
+        profileButton.disabled = false;
       }
     });
   });
@@ -1334,18 +2175,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (res.ok) {
           const data = await res.json();
-          currentUser = data.user;
-          activeChatSessionId = null;
-          void refreshChatSessionSidebar?.();
-          setAuthenticated(true);
-          if (loginModal) loginModal.style.display = 'none';
-          if (userBadge) userBadge.style.display = 'flex';
-          if (userNameDisplay) userNameDisplay.textContent = '👤 ' + currentUser!.display_name;
-          if (connectionStatus) {
-            connectionStatus.textContent = '● Kernel Online';
-            connectionStatus.className = 'status-online';
-          }
-          switchView('dashboard');
+          if (!data.access_token) throw new Error('Kernel did not return an access token');
+          sessionStorage.setItem(AUTH_TOKEN_KEY, data.access_token);
+          completeAuthentication(data.user);
         } else {
           if (loginError) {
             loginError.textContent = 'Invalid credentials. Try again.';
@@ -1358,19 +2190,6 @@ document.addEventListener('DOMContentLoaded', () => {
           loginError.style.display = 'block';
         }
       }
-    });
-  }
-
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', () => {
-      currentUser = null;
-      activeChatSessionId = null;
-      void refreshChatSessionSidebar?.();
-      setAuthenticated(false);
-      if (loginModal) loginModal.style.display = 'flex';
-      if (userBadge) userBadge.style.display = 'none';
-      if (loginUsername) loginUsername.value = '';
-      if (loginPassword) loginPassword.value = '';
     });
   }
 
@@ -1402,13 +2221,15 @@ document.addEventListener('DOMContentLoaded', () => {
     startedAt: number;
   };
   let activeChatReasoningView: ReasoningSummaryView | null = null;
-  const langSelect = document.getElementById('global-lang-select') as HTMLSelectElement | null;
   let isLiveModeActive = false;
   let currentWebcamFrame: string | null = null;
 
   let currentAttachedImageData: string | null = null;
-  const attachedImageContainer = document.getElementById('attached-image-container') as HTMLDivElement;
-  const attachedImagePreview = document.getElementById('attached-image-preview') as HTMLImageElement;
+  const attachedImageContainer = document.getElementById('attached-image-container') as HTMLDivElement | null;
+  const attachedImagePreview = document.getElementById('attached-image-preview') as HTMLImageElement | null;
+  const attachImageButton = document.getElementById('btn-attach-image') as HTMLButtonElement | null;
+  const attachedImageInput = document.getElementById('chat-image-input') as HTMLInputElement | null;
+  const removeAttachedImageButton = document.getElementById('remove-attached-image-btn') as HTMLButtonElement | null;
   const chatSessionList = document.getElementById('chat-session-list');
   const newChatSessionBtn = document.getElementById('new-chat-session-btn') as HTMLButtonElement | null;
   const chatSessionProjectLabel = document.getElementById('chat-session-project-label');
@@ -1649,13 +2470,72 @@ document.addEventListener('DOMContentLoaded', () => {
     .replace(/'/g, '&#039;');
 
   function formatEvidenceResponse(response: string) {
-    return escapeHtml(response)
-      .replace(/\[Source:\s*(.*?)\]/gi, '<a class="citation-link" data-source="$1" onclick="window.inspectDocument(\'$1\')">[Source: $1]</a>')
+    const citations: string[] = [];
+    const tokenized = response.replace(/\[Source:\s*([^\]\n]+)\]/gi, (_match, rawSource: string) => {
+      const source = String(rawSource).split('|', 1)[0].trim();
+      if (!source) return '';
+      const token = `@@AIOSCITATION${citations.length}@@`;
+      citations.push(source);
+      return token;
+    });
+    let formatted = escapeHtml(tokenized)
       .replace(/### (.*?)\n/g, '<h3>$1</h3>')
       .replace(/## (.*?)\n/g, '<h3>$1</h3>')
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\n/g, '<br/>');
+    citations.forEach((source, index) => {
+      const safeSource = escapeHtml(source);
+      formatted = formatted.replace(
+        `@@AIOSCITATION${index}@@`,
+        `<button type="button" class="citation-link" data-source="${safeSource}">[Source: ${safeSource}]</button>`,
+      );
+    });
+    return formatted;
   }
+
+  const citationInspectorModal = document.getElementById('citation-inspector-modal') as HTMLDivElement | null;
+  const citationInspectorTitle = document.getElementById('citation-inspector-title');
+  const citationInspectorMeta = document.getElementById('citation-inspector-meta');
+  const citationInspectorStatus = document.getElementById('citation-inspector-status');
+  const citationInspectorContent = document.getElementById('citation-inspector-content');
+  const closeCitationInspectorButton = document.getElementById('close-citation-inspector-btn') as HTMLButtonElement | null;
+
+  const closeCitationInspector = () => {
+    if (citationInspectorModal) citationInspectorModal.style.display = 'none';
+  };
+
+  async function inspectDocumentSource(source: string) {
+    if (!citationInspectorModal || !citationInspectorTitle || !citationInspectorMeta || !citationInspectorStatus || !citationInspectorContent) return;
+    citationInspectorModal.style.display = 'flex';
+    citationInspectorTitle.textContent = source;
+    citationInspectorMeta.textContent = '';
+    citationInspectorContent.textContent = '';
+    citationInspectorStatus.textContent = 'Loading source…';
+    try {
+      const response = await fetch(`/api/documents/detail?file_name=${encodeURIComponent(source)}`);
+      if (!response.ok) throw new Error(response.status === 404 ? 'The cited source is no longer in the document vault.' : 'Could not load this source.');
+      const detail = await response.json();
+      citationInspectorMeta.textContent = `${detail.file_type || 'document'} · ${detail.chunks_indexed || 0} indexed section${detail.chunks_indexed === 1 ? '' : 's'}`;
+      citationInspectorContent.textContent = detail.extracted_text || detail.summary || 'No extracted text is available.';
+      citationInspectorStatus.textContent = '';
+    } catch (error) {
+      citationInspectorStatus.textContent = error instanceof Error ? error.message : 'Could not load this source.';
+    }
+  }
+
+  chatStream?.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement;
+    const citation = target.closest<HTMLButtonElement>('.citation-link');
+    if (citation?.dataset.source) void inspectDocumentSource(citation.dataset.source);
+  });
+  closeCitationInspectorButton?.addEventListener('click', closeCitationInspector);
+  citationInspectorModal?.addEventListener('click', (event) => {
+    if (event.target === citationInspectorModal) closeCitationInspector();
+  });
+  window.addEventListener('inspect-document-source', (event: Event) => {
+    const source = String((event as CustomEvent).detail?.source || '');
+    if (source) void inspectDocumentSource(source);
+  });
 
   function makeModelFooter(provider?: string, model?: string, label: string = 'Key Verified') {
     const safeProvider = escapeHtml((provider || 'azure').toUpperCase());
@@ -1800,16 +2680,21 @@ document.addEventListener('DOMContentLoaded', () => {
         remove.addEventListener('click', async (event) => {
           event.stopPropagation();
           if (!confirm(`Delete the chat session “${session.title || 'New chat'}”?`)) return;
-          const params = new URLSearchParams({ username: activeChatUser() });
-          const deleted = await fetch(`${chatApiBase()}/api/chat/sessions/${encodeURIComponent(session.id)}?${params.toString()}`, { method: 'DELETE' });
-          if (!deleted.ok) {
-            alert('Could not delete this chat session.');
-            return;
+          try {
+            const params = new URLSearchParams({ username: activeChatUser() });
+            const deleted = await fetch(`${chatApiBase()}/api/chat/sessions/${encodeURIComponent(session.id)}?${params.toString()}`, { method: 'DELETE' });
+            if (!deleted.ok) {
+              alert('Could not delete this chat session.');
+              return;
+            }
+            if (activeChatSessionId === session.id) {
+              activeChatSessionId = null;
+            }
+            await refreshChatSessionSidebar?.();
+          } catch (err) {
+            console.error('Failed to delete chat session:', err);
+            alert(`Could not delete chat session: ${err instanceof Error ? err.message : 'network error'}`);
           }
-          if (activeChatSessionId === session.id) {
-            activeChatSessionId = null;
-          }
-          await refreshChatSessionSidebar?.();
         });
         item.append(open, remove);
         chatSessionList.appendChild(item);
@@ -1966,10 +2851,34 @@ document.addEventListener('DOMContentLoaded', () => {
   function takeComposerImage(): string | null {
     const imageData = currentAttachedImageData;
     currentAttachedImageData = null;
-    if (attachedImageContainer) attachedImageContainer.style.display = 'none';
+    if (attachedImageContainer) attachedImageContainer.hidden = true;
     if (attachedImagePreview) attachedImagePreview.src = '';
+    if (attachedImageInput) attachedImageInput.value = '';
     return imageData;
   }
+
+  attachImageButton?.addEventListener('click', () => attachedImageInput?.click());
+  removeAttachedImageButton?.addEventListener('click', () => { void takeComposerImage(); });
+  attachedImageInput?.addEventListener('change', () => {
+    const file = attachedImageInput.files?.[0];
+    if (!file) return;
+    const allowed = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
+    if (!allowed.has(file.type) || file.size > 5 * 1024 * 1024) {
+      window.alert('Choose a PNG, JPEG, WebP, or GIF image no larger than 5 MB.');
+      attachedImageInput.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== 'string') return;
+      currentAttachedImageData = reader.result;
+      if (attachedImagePreview) attachedImagePreview.src = reader.result;
+      if (attachedImageContainer) attachedImageContainer.hidden = false;
+      if (composerActions) composerActions.open = false;
+    };
+    reader.onerror = () => window.alert('The selected image could not be read.');
+    reader.readAsDataURL(file);
+  });
 
   function queueOrExecuteManagerPrompt(rawPrompt: string) {
     const useDeepResearch = Boolean(deepResearchMode?.checked);
@@ -2035,7 +2944,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const attachedImageForThisPayload = imageData;
     if (attachedImageForThisPayload) {
-      userMsgDiv.innerHTML = '<div><img src="' + attachedImageForThisPayload + '" style="max-width: 260px; max-height: 200px; border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--panel-border); display: block;" />' + escapeHtml(rawPrompt) + '</div>';
+      const content = document.createElement('div');
+      const preview = document.createElement('img');
+      preview.src = attachedImageForThisPayload;
+      preview.alt = 'Attached image';
+      preview.className = 'chat-attached-image';
+      content.append(preview, document.createTextNode(rawPrompt));
+      userMsgDiv.appendChild(content);
     } else {
       userMsgDiv.textContent = rawPrompt;
     }
@@ -2294,14 +3209,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const historyText = Array.from(chatStream.querySelectorAll('.user-msg, .agent-msg, .system-msg'))
         .map(el => el.textContent?.trim())
         .join('\n\n');
-      
+
       const dateStr = new Date().toISOString().slice(0,10);
       const filename = `Meeting_Transcript_${dateStr}.txt`;
       const blob = new Blob([historyText], { type: 'text/plain' });
       const formData = new FormData();
       formData.append('file', blob, filename);
       if (activeProjectId) formData.append('notebook_id', activeProjectId);
-      
+
       try {
         btnSaveMeeting.textContent = '⏳ Saving...';
         const res = await fetch('/api/documents/upload', {
@@ -2310,7 +3225,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (res.ok) {
           btnSaveMeeting.textContent = '✅ Saved to Vault';
-          fetchDocumentsFromDB(); // refresh hub
           setTimeout(() => btnSaveMeeting.textContent = '💾 Save to Vault', 3000);
         } else {
           btnSaveMeeting.textContent = '❌ Failed';
@@ -2329,7 +3243,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const webcamFeed = document.getElementById('webcam-feed') as HTMLVideoElement;
   const webcamCanvas = document.getElementById('webcam-canvas') as HTMLCanvasElement;
   const liveStatusText = document.getElementById('live-status-text');
-  
+
   let mediaStream: MediaStream | null = null;
   let recognition: any = null;
   let isSpeaking = false;
@@ -2356,11 +3270,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const rec = new SpeechRec();
     rec.continuous = true;
     rec.interimResults = false;
-    
+
     rec.onstart = () => {
       if (liveStatusText && !isSpeaking) liveStatusText.textContent = 'Live Mode: Listening...';
     };
-    
+
     rec.onresult = (event: any) => {
       if (isSpeaking) return; // ignore room echo if speaking
       let finalTranscript = '';
@@ -2373,7 +3287,7 @@ document.addEventListener('DOMContentLoaded', () => {
         queueOrExecuteManagerPrompt(finalTranscript.trim());
       }
     };
-    
+
     rec.onend = () => {
       if (isLiveModeActive && !isSpeaking) {
         try { rec.start(); } catch(e) {}
@@ -2384,15 +3298,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function speakResponseOutLoud(text: string) {
     if (!window.speechSynthesis) return;
-    
+
     // Strip markdown formatting for cleaner speech
     const cleanText = text.replace(/[#*\[\]]/g, '').replace(/Source:.*?\)/g, '');
-    
+
     const utterance = new SpeechSynthesisUtterance(cleanText);
-    const lang = langSelect ? langSelect.value : 'en-US';
+    const lang = getLanguage() === 'fi' ? 'fi-FI' : 'en-US';
     utterance.lang = lang;
     utterance.rate = 1.05; // slightly faster for conversational feel
-    
+
     // Attempt to pick a good voice
     const voices = window.speechSynthesis.getVoices();
     const targetVoices = voices.filter(v => v.lang.startsWith(lang.split('-')[0]));
@@ -2401,14 +3315,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const premium = targetVoices.find(v => v.name.includes('Google') || v.name.includes('Microsoft'));
       utterance.voice = premium || targetVoices[0];
     }
-    
+
     utterance.onstart = () => {
       isSpeaking = true;
       if (recognition) recognition.stop();
       if (liveStatusText) liveStatusText.textContent = 'Live Mode: Speaking...';
       if (btnGoLive) btnGoLive.classList.remove('pulse-glow-btn');
     };
-    
+
     utterance.onend = () => {
       isSpeaking = false;
       if (liveStatusText) liveStatusText.textContent = 'Live Mode: Listening...';
@@ -2417,7 +3331,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try { recognition.start(); } catch(e) {}
       }
     };
-    
+
     window.speechSynthesis.speak(utterance);
   }
   (window as typeof window & { speakResponseOutLoud?: (text: string) => void }).speakResponseOutLoud = speakResponseOutLoud;
@@ -2430,7 +3344,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnGoLive.classList.remove('active');
         btnGoLive.innerHTML = '🎙️ Go Live';
         if (liveContainer) liveContainer.style.display = 'none';
-        
+
         if (mediaStream) {
           mediaStream.getTracks().forEach(t => t.stop());
           mediaStream = null;
@@ -2445,21 +3359,15 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
           mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); // Audio captured via SpeechRec
           if (webcamFeed) webcamFeed.srcObject = mediaStream;
-          
+
           isLiveModeActive = true;
           btnGoLive.classList.add('active');
           btnGoLive.innerHTML = '🛑 Stop Live';
           if (liveContainer) liveContainer.style.display = 'flex';
-          
+
           recognition = initSpeechRecognition();
           if (recognition) {
-            recognition.lang = langSelect ? langSelect.value : 'en-US';
-            // update language if changed while live
-            if (langSelect) {
-              langSelect.addEventListener('change', () => {
-                if (recognition) recognition.lang = langSelect.value;
-              });
-            }
+            recognition.lang = getLanguage() === 'fi' ? 'fi-FI' : 'en-US';
             recognition.start();
           }
         } catch (err) {
@@ -2497,7 +3405,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (habitatAgentSelect) {
     habitatAgentSelect.addEventListener('change', () => {
       loadAgentConfiguration();
-      updateLivePromptInspector();
     });
   }
 
@@ -2536,7 +3443,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-});
   async function fetchAndRenderAgentPrompts() {
     try {
       const res = await fetch('/api/agents/prompts');
@@ -2548,45 +3454,52 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function fetchAndRenderApiUsage() {
-    // mock implementation
-  }
-
-  async function fetchDocumentsFromDB() {
-    const docTableBody = document.getElementById('doc-table-body');
-    if (!docTableBody) return;
+    const requests = document.getElementById('usage-requests');
+    const promptTokens = document.getElementById('usage-prompt-tokens');
+    const completionTokens = document.getElementById('usage-completion-tokens');
+    const cost = document.getElementById('usage-cost');
+    const providerBody = document.getElementById('usage-provider-body');
     try {
-      const res = await fetch('/api/documents/list');
-      if (res.ok) {
-        const data = await res.json();
-        docTableBody.innerHTML = '';
-        if (data.documents && Array.isArray(data.documents) && data.documents.length > 0) {
-          data.documents.forEach((doc: any) => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-              <td>
-                <div class="doc-cell">
-                  <span class="doc-icon">📄</span>
-                  <span class="doc-title">${doc.file_name}</span>
-                </div>
-              </td>
-              <td>Document</td>
-              <td>${doc.chunks_indexed || 1} Chunks</td>
-              <td>1,536 dimensions</td>
-              <td><span class="status-pill-green">Indexed</span></td>
-              <td><button type="button" class="action-sm-btn">View Chunks</button></td>
-            `;
-            docTableBody.appendChild(tr);
-          });
+      const response = await fetch('/api/providers/usage');
+      if (!response.ok) throw new Error(await response.text());
+      const usage = await response.json();
+      if (requests) requests.textContent = Number(usage.total_requests || 0).toLocaleString();
+      if (promptTokens) promptTokens.textContent = Number(usage.total_prompt_tokens || 0).toLocaleString();
+      if (completionTokens) completionTokens.textContent = Number(usage.total_completion_tokens || 0).toLocaleString();
+      if (cost) cost.textContent = `$${Number(usage.total_cost_usd || 0).toFixed(4)}`;
+      if (providerBody) {
+        providerBody.replaceChildren();
+        const providers = Object.entries(usage.providers || {}) as Array<[string, Record<string, number>]>;
+        if (!providers.length) {
+          const row = document.createElement('tr');
+          const cell = document.createElement('td');
+          cell.colSpan = 5;
+          cell.className = 'placeholder-rag';
+          cell.textContent = 'No usage data yet.';
+          row.appendChild(cell);
+          providerBody.appendChild(row);
         } else {
-          docTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">📄 No documents indexed in database yet.</td></tr>';
+          providers.forEach(([provider, metrics]) => {
+            const row = document.createElement('tr');
+            [provider, metrics.requests || 0, metrics.prompt_tokens || 0, metrics.completion_tokens || 0, `$${Number(metrics.cost_usd || 0).toFixed(4)}`]
+              .forEach((value) => {
+                const cell = document.createElement('td');
+                cell.textContent = String(value);
+                row.appendChild(cell);
+              });
+            providerBody.appendChild(row);
+          });
         }
       }
-    } catch (e) {
-      console.warn("Could not fetch documents list from backend:", e);
+    } catch (error) {
+      console.warn('Could not fetch API usage:', error);
     }
   }
 
-  // Restore the event listeners for custom directives and tone select if needed
+  document.getElementById('refresh-usage-btn')?.addEventListener('click', () => {
+    void fetchAndRenderApiUsage();
+  });
+
 
 
 // ==========================================
@@ -2677,7 +3590,7 @@ async function loadTableData(table: string) {
     if (res.ok) {
       const data = await res.json();
       currentTableSchema = data.schema;
-      
+
       const headerRow = document.createElement('tr');
       data.schema.forEach((col: any) => {
         const header = document.createElement('th');
@@ -2685,7 +3598,7 @@ async function loadTableData(table: string) {
         headerRow.appendChild(header);
       });
       const actionHeader = document.createElement('th');
-      actionHeader.textContent = 'Actions';
+      actionHeader.textContent = t('action_actions');
       headerRow.appendChild(actionHeader);
       dbDataThead.replaceChildren(headerRow);
 
@@ -2695,7 +3608,7 @@ async function loadTableData(table: string) {
         const cell = document.createElement('td');
         cell.colSpan = data.schema.length + 1;
         cell.className = 'db-empty-cell';
-        cell.textContent = `No rows found in ${table}.`;
+        cell.textContent = t('msg_no_rows').replace('{table}', table);
         row.appendChild(cell);
         dbDataTbody.appendChild(row);
       } else {
@@ -2715,16 +3628,22 @@ async function loadTableData(table: string) {
           const editButton = document.createElement('button');
           editButton.type = 'button';
           editButton.className = 'action-sm-btn';
-          editButton.textContent = 'Edit';
+          editButton.textContent = t('action_edit');
           editButton.addEventListener('click', () => openEditModal(pkCol, row[pkCol], row));
           const deleteButton = document.createElement('button');
           deleteButton.type = 'button';
           deleteButton.className = 'action-sm-btn delete-db-btn';
-          deleteButton.textContent = 'Delete';
+          deleteButton.textContent = t('action_delete');
           deleteButton.addEventListener('click', async () => {
-            if (confirm('Are you sure you want to delete this row?')) {
-              await fetch(`/api/db/tables/${table}/${pkCol}/${encodeURIComponent(String(row[pkCol]))}`, { method: 'DELETE' });
-              loadTableData(table);
+            if (confirm(t('action_delete_confirm'))) {
+              try {
+                const res = await fetch(`/api/db/tables/${table}/${pkCol}/${encodeURIComponent(String(row[pkCol]))}`, { method: 'DELETE' });
+                if (!res.ok) throw new Error(await res.text());
+                loadTableData(table);
+              } catch (err) {
+                console.error('Failed to delete row:', err);
+                alert(`Could not delete row: ${err instanceof Error ? err.message : 'network error'}`);
+              }
             }
           });
           actions.append(editButton, deleteButton);
@@ -2742,30 +3661,32 @@ function openEditModal(pkCol: string, pkVal: any, rowData: any, creating = false
   isCreatingDbRow = creating;
   currentEditingPkCol = pkCol;
   currentEditingPkVal = pkVal;
-  
+
   if (dbRowFieldsContainer) {
-    dbRowFieldsContainer.innerHTML = '';
+    dbRowFieldsContainer.replaceChildren();
     currentTableSchema.forEach((col) => {
       const div = document.createElement('div');
       div.className = 'input-group';
       const isPk = !creating && col.name === pkCol;
       const type = col.type.toLowerCase();
-      
-      let inputHtml = '';
+
+      let inputEl: HTMLInputElement | HTMLTextAreaElement;
       if (type.includes('text') && col.name.includes('md') || col.name.includes('prompt')) {
-        inputHtml = `<textarea id="edit-col-${col.name}" class="param-select full-width" rows="6" ${isPk ? 'disabled' : ''}></textarea>`;
+        inputEl = document.createElement('textarea');
+        inputEl.rows = 6;
       } else {
-        inputHtml = `<input type="text" id="edit-col-${col.name}" class="param-select full-width" ${isPk ? 'disabled' : ''} />`;
+        inputEl = document.createElement('input');
+        inputEl.type = 'text';
       }
-      
-      div.innerHTML = `
-        <label>${col.name} ${isPk ? '(Primary Key)' : ''}</label>
-        ${inputHtml}
-      `;
+      inputEl.id = `edit-col-${col.name}`;
+      inputEl.className = 'param-select full-width';
+      inputEl.disabled = isPk;
+      const label = document.createElement('label');
+      label.htmlFor = inputEl.id;
+      label.textContent = `${col.name} ${isPk ? '(Primary Key)' : ''}`;
+      div.append(label, inputEl);
       dbRowFieldsContainer.appendChild(div);
-      
-      const inputEl = document.getElementById(`edit-col-${col.name}`) as HTMLInputElement;
-      if (inputEl) inputEl.value = rowData[col.name] !== null ? rowData[col.name] : '';
+      inputEl.value = rowData[col.name] !== null && rowData[col.name] !== undefined ? String(rowData[col.name]) : '';
     });
   }
 
@@ -2866,10 +3787,10 @@ async function loadKanbanProjectOptions() {
     const payload = await response.json();
     const projects = Array.isArray(payload.notebooks) ? payload.notebooks : [];
     taskProjectSelect.replaceChildren();
-    const forestOption = document.createElement('option');
-    forestOption.value = '';
-    forestOption.textContent = 'Forest Joensuu-wide task';
-    taskProjectSelect.appendChild(forestOption);
+    const orgOption = document.createElement('option');
+    orgOption.value = '';
+    orgOption.textContent = 'Organization-wide task';
+    taskProjectSelect.appendChild(orgOption);
     projects.forEach((project: any) => {
       const option = document.createElement('option');
       option.value = String(project.id || '');
@@ -2966,16 +3887,6 @@ function makeKanbanAction(label: string, className: string, handler: () => void,
   return button;
 }
 
-if (tabKanban && viewKanban) {
-  tabKanban.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.page-view').forEach(view => { (view as HTMLElement).style.display = 'none'; });
-    
-    tabKanban.classList.add('active');
-    viewKanban.style.display = 'block';
-    fetchAndRenderKanbanTasks();
-  });
-}
 
 if (newTaskBtn && newTaskModal) {
   newTaskBtn.addEventListener('click', () => {
@@ -2998,12 +3909,12 @@ if (newTaskForm) {
       alert('Add clear instructions for the AI Board Member.');
       return;
     }
-    
+
     try {
       const localScheduledTime = taskTimeInput?.value || '';
       const payload = {
         prompt,
-        username: 'alex',
+        username: currentUser?.username || 'alex',
         notebook_ids: taskProjectSelect?.value ? [taskProjectSelect.value] : [],
         scheduled_time: localScheduledTime ? new Date(localScheduledTime).toISOString() : null,
         timezone: localTimeZone(),
@@ -3071,11 +3982,17 @@ function renderKanbanBoard(tasks: any[]) {
   tasks.forEach(task => {
     const card = document.createElement('div');
     card.className = 'kanban-card';
-    card.draggable = task.status === 'pending';
+    card.draggable = task.status === 'pending' && !task.managed_by_goal;
     card.dataset.taskId = task.id;
 
     const title = document.createElement('h4');
     title.textContent = task.prompt;
+    if (task.managed_by_goal && task.goal_title) {
+      const goalLabel = document.createElement('div');
+      goalLabel.className = 'task-goal-label';
+      goalLabel.textContent = task.goal_title;
+      card.appendChild(goalLabel);
+    }
     const metadata = document.createElement('div');
     metadata.className = 'task-time';
     const isScheduled = Boolean(task.schedule_enabled);
@@ -3114,27 +4031,38 @@ function renderKanbanBoard(tasks: any[]) {
     const viewIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
     const rerunIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>`;
 
-    if (task.status === 'pending') {
+    if (task.managed_by_goal) {
+      const managed = document.createElement('span');
+      managed.className = 'task-running-label';
+      managed.textContent = `Goal step · ${String(task.step_status || task.status).replace('_', ' ')}`;
+      actions.appendChild(managed);
+    } else if (task.status === 'pending') {
       actions.append(
-        makeKanbanAction('Run now', 'action-sm-btn action-primary', () => void runKanbanTaskNow(task.id), runIcon),
-        makeKanbanAction('Edit', 'action-sm-btn', () => void openKanbanTaskModal(task), editIcon),
-        makeKanbanAction('Delete', 'action-sm-btn delete-db-btn', () => void deleteKanbanTask(task.id), deleteIcon),
+        makeKanbanAction(t('action_run'), 'action-sm-btn action-primary', () => void runKanbanTaskNow(task.id), runIcon),
+        makeKanbanAction(t('action_edit'), 'action-sm-btn', () => void openKanbanTaskModal(task), editIcon),
+        makeKanbanAction(t('action_delete'), 'action-sm-btn delete-db-btn', () => void deleteKanbanTask(task.id), deleteIcon),
       );
     } else if (task.status === 'running') {
       const running = document.createElement('span');
       running.className = 'task-running-label';
-      running.textContent = 'AI Board Member is running this task';
+      running.textContent = t('status_loading');
       actions.appendChild(running);
     } else {
       actions.append(
-        makeKanbanAction('View result', 'action-sm-btn', () => void openKanbanArchive(task.id), viewIcon),
-        makeKanbanAction('Run again', 'action-sm-btn action-primary', () => void rerunKanbanTask(task.id), rerunIcon),
-        makeKanbanAction('Delete', 'action-sm-btn delete-db-btn', () => void deleteKanbanTask(task.id), deleteIcon),
+        makeKanbanAction(t('action_view'), 'action-sm-btn', () => void openKanbanArchive(task.id), viewIcon),
+        makeKanbanAction(t('action_run'), 'action-sm-btn action-primary', () => void rerunKanbanTask(task.id), rerunIcon),
+        makeKanbanAction(t('action_delete'), 'action-sm-btn delete-db-btn', () => void deleteKanbanTask(task.id), deleteIcon),
       );
+    }
+    if (task.goal_id) {
+      actions.append(makeKanbanAction('Goal', 'action-sm-btn', () => {
+        window.dispatchEvent(new CustomEvent('open-agent-work-goal', { detail: { goalId: task.goal_id } }));
+      }));
     }
     card.appendChild(actions);
 
     card.addEventListener('dragstart', () => {
+      if (task.managed_by_goal) return;
       currentDraggedTask = task;
       setTimeout(() => card.style.opacity = '0.5', 0);
     });
@@ -3225,12 +4153,14 @@ if (rerunArchiveTaskBtn) rerunArchiveTaskBtn.addEventListener('click', () => { i
 if (colRun) {
   colRun.addEventListener('dragover', (event) => {
     event.preventDefault();
-    colRun.parentElement!.style.borderColor = 'var(--accent-blue)';
+    if (colRun.parentElement) colRun.parentElement.style.borderColor = 'var(--accent-blue)';
   });
-  colRun.addEventListener('dragleave', () => { colRun.parentElement!.style.borderColor = 'var(--panel-border)'; });
+  colRun.addEventListener('dragleave', () => {
+    if (colRun.parentElement) colRun.parentElement.style.borderColor = 'var(--panel-border)';
+  });
   colRun.addEventListener('drop', (event) => {
     event.preventDefault();
-    colRun.parentElement!.style.borderColor = 'var(--panel-border)';
+    if (colRun.parentElement) colRun.parentElement.style.borderColor = 'var(--panel-border)';
     if (currentDraggedTask?.status === 'pending') void runKanbanTaskNow(currentDraggedTask.id);
   });
 }
@@ -3242,16 +4172,19 @@ window.addEventListener('ai-os-agent-event', (event: Event) => {
 
 // Polling is a fallback; WebSocket task events keep an open board in sync immediately.
 setInterval(() => {
-  if (viewKanban && viewKanban.style.display === 'block') {
+  const board = document.getElementById('agent-work-board-panel');
+  if (board && board.offsetParent !== null) {
     fetchAndRenderKanbanTasks();
   }
 }, 5000);
 
 setInterval(() => {
-  if (viewKanban && viewKanban.style.display === 'block') {
+  const board = document.getElementById('agent-work-board-panel');
+  if (board && board.offsetParent !== null) {
     refreshKanbanCountdowns();
   }
 }, 1000);
 
+});
 
 // Notebook sources are refreshed from their selected notebook membership above.

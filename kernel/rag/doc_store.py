@@ -1,6 +1,7 @@
 import os
 import time
 import logging
+import uuid
 from typing import List, Dict, Any, Optional
 import numpy as np
 from kernel.core.azure_client import azure_client
@@ -9,6 +10,8 @@ from kernel.db.local_manager import db_manager
 logger = logging.getLogger("doc_store")
 
 DOCS_STORAGE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "documents"))
+SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".csv", ".pptx", ".txt", ".md", ".json"}
+MAX_DOCUMENT_BYTES = 25 * 1024 * 1024
 
 class DocumentIngestionEngine:
     """Ingests PDF, Word (.docx), Excel (.xlsx/.csv), PowerPoint (.pptx), TXT, and Markdown files
@@ -30,12 +33,12 @@ class DocumentIngestionEngine:
                 reader = pypdf.PdfReader(file_path)
                 text_content = "\n".join([page.extract_text() or "" for page in reader.pages])
 
-            elif ext in [".docx", ".doc"]:
+            elif ext == ".docx":
                 import docx
                 doc = docx.Document(file_path)
                 text_content = "\n".join([p.text for p in doc.paragraphs if p.text])
 
-            elif ext in [".xlsx", ".xls", ".csv"]:
+            elif ext in [".xlsx", ".csv"]:
                 import pandas as pd
                 if ext == ".csv":
                     df = pd.read_csv(file_path)
@@ -43,7 +46,7 @@ class DocumentIngestionEngine:
                     df = pd.read_excel(file_path)
                 text_content = f"Data Summary:\nColumns: {list(df.columns)}\nRows Count: {len(df)}\nSample Data:\n{df.head(20).to_string()}"
 
-            elif ext in [".pptx", ".ppt"]:
+            elif ext == ".pptx":
                 import pptx
                 prs = pptx.Presentation(file_path)
                 slides_text = []
@@ -60,8 +63,7 @@ class DocumentIngestionEngine:
                     text_content = f.read()
 
             else:
-                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                    text_content = f.read()
+                raise ValueError(f"Unsupported document type: {ext or 'no extension'}")
 
             return text_content.strip()
 
@@ -85,47 +87,86 @@ class DocumentIngestionEngine:
 
     def ingest_document(self, file_name: str, content_bytes: bytes) -> Dict[str, Any]:
         """Saves raw file locally, extracts text, generates embeddings, and stores chunks + vectors in local SQLite."""
-        # 1. Save original raw file to local data/documents/ directory
+        if not file_name or os.path.basename(file_name) != file_name or file_name in {".", ".."}:
+            return {"status": "error", "message": "A safe document filename is required."}
+        ext = os.path.splitext(file_name)[1].lower()
+        if ext not in SUPPORTED_EXTENSIONS:
+            return {"status": "error", "message": f"Unsupported document type: {ext or 'no extension'}"}
+        if not content_bytes:
+            return {"status": "error", "message": "The uploaded document is empty."}
+        if len(content_bytes) > MAX_DOCUMENT_BYTES:
+            return {"status": "error", "message": "Document exceeds the 25 MiB upload limit."}
+        # Parse a temporary copy first so a failed re-upload cannot destroy the
+        # last known-good raw file.
         file_path = os.path.join(DOCS_STORAGE_DIR, file_name)
-        with open(file_path, "wb") as f:
+        temporary_path = os.path.join(DOCS_STORAGE_DIR, f".upload-{uuid.uuid4().hex}{ext}")
+        with open(temporary_path, "wb") as f:
             f.write(content_bytes)
 
-        text = self.parse_file(file_path)
+        try:
+            text = self.parse_file(temporary_path)
+        except Exception as exc:
+            try:
+                os.remove(temporary_path)
+            except OSError:
+                pass
+            return {"status": "error", "message": f"Document could not be parsed: {exc}"}
         if not text:
+            try:
+                os.remove(temporary_path)
+            except OSError:
+                pass
             return {"status": "error", "message": "Extracted text was empty."}
 
         # 2. Chunk text into ~500 token segments
         chunks = [text[i:i+1500] for i in range(0, len(text), 1200)]
-        
-        indexed_chunks = 0
+        storage_path = f"data/documents/{file_name}"
+
+        indexed_payload: List[Dict[str, Any]] = []
         for idx, chunk in enumerate(chunks):
+            embedding: Optional[List[float]] = None
             try:
                 embedding = azure_client.get_embedding(chunk)
-                
-                # Insert into in-memory store
-                self.vector_store.append({
-                    "doc_name": file_name,
-                    "chunk_index": idx,
-                    "text": chunk,
-                    "embedding": embedding
-                })
-                
-                # Insert into local SQLite document_chunks + vec_document_chunks
-                db_manager.insert_chunk(
-                    doc_name=file_name,
-                    chunk_index=idx,
-                    text_content=chunk,
-                    embedding=embedding
-                )
+            except Exception as exc:
+                # Lexical retrieval remains available when embeddings are not
+                # configured or the provider is temporarily unavailable.
+                logger.warning("Embedding unavailable for %s chunk %s: %s", file_name, idx, exc)
 
-                indexed_chunks += 1
-            except Exception as e:
-                logger.error(f"Failed embedding chunk {idx} for {file_name}: {e}")
+            indexed_payload.append({"text": chunk, "embedding": embedding})
 
-        # 3. Generate AI Summary & Metadata Record
         summary = self.generate_ai_summary(file_name, text)
-        ext = os.path.splitext(file_name)[1].lower()
+        if not db_manager.replace_document_index(
+            file_name=file_name,
+            extension=ext,
+            size_bytes=len(content_bytes),
+            text_length=len(text),
+            storage_path=storage_path,
+            ai_summary=summary,
+            chunks=indexed_payload,
+        ):
+            try:
+                os.remove(temporary_path)
+            except OSError:
+                pass
+            return {"status": "error", "message": "Document index could not be stored atomically."}
+        try:
+            os.replace(temporary_path, file_path)
+        except OSError as exc:
+            logger.error("Document was indexed but its raw file could not be finalized: %s", exc)
+            return {"status": "error", "message": "Document index was stored but raw file finalization failed."}
 
+        indexed_chunks = len(indexed_payload)
+        self.vector_store = [item for item in self.vector_store if item.get("doc_name") != file_name]
+        self.vector_store.extend(
+            {
+                "doc_name": file_name,
+                "chunk_index": idx,
+                "text": item["text"],
+                "embedding": item["embedding"],
+            }
+            for idx, item in enumerate(indexed_payload)
+            if item["embedding"] is not None
+        )
         meta = {
             "file_name": file_name,
             "extension": ext,
@@ -135,20 +176,9 @@ class DocumentIngestionEngine:
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
             "ai_summary": summary,
             "extracted_text": text,
-            "storage_path": f"data/documents/{file_name}"
+            "storage_path": storage_path,
         }
         self.documents_metadata[file_name] = meta
-
-        # Persist document metadata to local SQLite
-        db_manager.save_document_metadata(
-            file_name=file_name,
-            extension=ext,
-            size_bytes=len(content_bytes),
-            text_length=len(text),
-            chunks_indexed=indexed_chunks,
-            storage_path=f"data/documents/{file_name}",
-            ai_summary=summary
-        )
 
         return {
             "status": "success",
@@ -164,15 +194,63 @@ class DocumentIngestionEngine:
 
     def get_document_details(self, file_name: str) -> Optional[Dict[str, Any]]:
         """Returns complete extracted text and chunk breakdown for document inspection."""
-        if file_name in self.documents_metadata:
-            return self.documents_metadata[file_name]
-        
-        # Fallback to SQLite DB
-        db_docs = db_manager.get_all_documents()
-        for doc in db_docs:
-            if doc.get("file_name") == file_name:
-                return doc
-        return None
+        return db_manager.get_document_details(file_name)
+
+    def delete_document(self, file_name: str) -> bool:
+        """Delete database state, raw storage, and process-local caches together."""
+        if not db_manager.delete_document(file_name):
+            return False
+        self.documents_metadata.pop(file_name, None)
+        self.vector_store = [item for item in self.vector_store if item.get("doc_name") != file_name]
+        file_path = os.path.abspath(os.path.join(DOCS_STORAGE_DIR, file_name))
+        if os.path.commonpath([DOCS_STORAGE_DIR, file_path]) != DOCS_STORAGE_DIR:
+            logger.error("Refusing to remove document outside storage: %s", file_path)
+            return False
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except OSError as exc:
+            logger.error("Database document was deleted but raw file removal failed for %s: %s", file_name, exc)
+            return False
+        return True
+
+    def repair_missing_indexes(self) -> Dict[str, int]:
+        """Rebuild lexical chunks for existing rows that falsely claim an index."""
+        repaired = 0
+        failed = 0
+        for document in db_manager.get_all_documents():
+            file_name = str(document.get("file_name") or "")
+            details = db_manager.get_document_details(file_name)
+            if not file_name or (details and details.get("chunks")):
+                continue
+            file_path = os.path.abspath(os.path.join(DOCS_STORAGE_DIR, file_name))
+            if os.path.commonpath([DOCS_STORAGE_DIR, file_path]) != DOCS_STORAGE_DIR or not os.path.isfile(file_path):
+                failed += 1
+                continue
+            try:
+                text = self.parse_file(file_path)
+                chunks = [text[i:i+1500] for i in range(0, len(text), 1200)]
+                db_manager.clear_document_chunks(file_name)
+                stored = sum(
+                    db_manager.insert_chunk(file_name, index, chunk, None) >= 0
+                    for index, chunk in enumerate(chunks)
+                )
+                if stored != len(chunks):
+                    raise RuntimeError("Not all chunks were stored")
+                db_manager.save_document_metadata(
+                    file_name=file_name,
+                    extension=str(document.get("extension") or os.path.splitext(file_name)[1].lower()),
+                    size_bytes=int(document.get("size_bytes") or os.path.getsize(file_path)),
+                    text_length=len(text),
+                    chunks_indexed=stored,
+                    storage_path=str(document.get("storage_path") or f"data/documents/{file_name}"),
+                    ai_summary=str(document.get("ai_summary") or ""),
+                )
+                repaired += 1
+            except Exception as exc:
+                logger.error("Could not repair document index for %s: %s", file_name, exc)
+                failed += 1
+        return {"repaired": repaired, "failed": failed}
 
     def generate_notebook_briefing(self, notebook_id: str) -> str:
         """NotebookLM feature: Generates a comprehensive Briefing Document (Source Guide, FAQ, Timeline)."""
@@ -256,6 +334,17 @@ class DocumentIngestionEngine:
 
             # Fallback cosine distance calculation on in-memory store
             if not self.vector_store:
+                lexical_results = db_manager.search_document_chunks_lexically(
+                    query,
+                    top_k=top_k,
+                    notebook_id=notebook_id,
+                    document_names=document_names,
+                )
+                if lexical_results:
+                    return "\n\n---\n\n".join(
+                        f"📄 [Source: {item['doc_name']} | Keyword match]\n{item['text_content']}"
+                        for item in lexical_results
+                    )
                 return "No documents available for search."
 
             q_vec = np.array(query_embedding)
@@ -274,7 +363,12 @@ class DocumentIngestionEngine:
                 if nb_docs is not None and item["doc_name"] not in nb_docs:
                     continue
                 doc_vec = np.array(item["embedding"])
-                similarity = np.dot(q_vec, doc_vec) / (np.linalg.norm(q_vec) * np.linalg.norm(doc_vec))
+                norm_q = float(np.linalg.norm(q_vec))
+                norm_doc = float(np.linalg.norm(doc_vec))
+                if norm_q > 0 and norm_doc > 0:
+                    similarity = float(np.dot(q_vec, doc_vec) / (norm_q * norm_doc))
+                else:
+                    similarity = 0.0
                 scored_docs.append((similarity, item["doc_name"], item["text"]))
 
             scored_docs.sort(key=lambda x: x[0], reverse=True)
@@ -288,7 +382,12 @@ class DocumentIngestionEngine:
 
         except Exception as e:
             logger.error(f"Document search error: {e}")
-            lexical_results = db_manager.search_document_chunks_lexically(query, top_k=top_k, notebook_id=notebook_id)
+            lexical_results = db_manager.search_document_chunks_lexically(
+                query,
+                top_k=top_k,
+                notebook_id=notebook_id,
+                document_names=document_names,
+            )
             if lexical_results:
                 return "\n\n---\n\n".join(
                     f"📄 [Source: {item['doc_name']} | Keyword match]\n{item['text_content']}"

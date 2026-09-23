@@ -1,7 +1,7 @@
 # Technical Documentation Report: Fix Chat Endpoint & Sub-Agent NameError Crash
 
 **Date:** 2026-07-30  
-**Project:** Forest Joensuu AI OS  
+**Project:** The Company AI OS  
 **Author:** AI System Architect  
 
 ---
@@ -43,7 +43,7 @@ An issue was identified where the Executive AI Board Member Chat in the user int
   ```python
   @app.post("/api/chat")
   async def chat_endpoint(req: PromptRequest):
-      user_name = req.username or "mikko"
+      user_name = req.username or "alex"
       try:
           result = await manager_agent.handle_user_prompt(req.prompt, username=user_name, image_data=req.image_data)
           return result

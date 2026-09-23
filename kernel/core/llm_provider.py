@@ -3,6 +3,8 @@ import json
 import re
 import urllib.request
 import logging
+import threading
+import time
 from typing import Callable, List, Dict, Any, Optional
 from kernel.core.config import settings
 
@@ -68,103 +70,23 @@ def is_supported_azure_deployment(model: Optional[str]) -> bool:
     return bool(model and model in APPROVED_AZURE_DEPLOYMENTS)
 
 MODEL_PROVIDERS_CATALOG = {
-    "azure": {
+    AZURE_PROVIDER: {
         "name": "Azure OpenAI Service",
         "icon": "☁️",
-        "description": "Microsoft Azure OpenAI Dedicated Enterprise Endpoints",
+        "description": "Microsoft Azure OpenAI enterprise deployments",
         "default_model": DEFAULT_AZURE_DEPLOYMENT,
         "available_models": list(APPROVED_AZURE_DEPLOYMENTS),
-    },
-    "openai": {
-        "name": "OpenAI Standard API",
-        "icon": "🤖",
-        "description": "Direct OpenAI Platform API (GPT-4o, GPT-4o-mini, o1, o3-mini)",
-        "default_model": "gpt-4o-mini",
-        "available_models": [
-            "gpt-4o-mini",
-            "gpt-4o",
-            "gpt-4.5-preview",
-            "o1",
-            "o3-mini"
-        ]
-    },
-    "anthropic": {
-        "name": "Anthropic Claude",
-        "icon": "🧠",
-        "description": "Anthropic Messages API (Claude 3.5 Sonnet, Claude 3.5 Haiku)",
-        "default_model": "claude-3-5-sonnet-20241022",
-        "available_models": [
-            "claude-3-5-sonnet-20241022",
-            "claude-3-5-haiku-20241022",
-            "claude-3-opus-20240229"
-        ]
-    },
-    "gemini": {
-        "name": "Google Gemini",
-        "icon": "✨",
-        "description": "Google AI Studio API (Gemini 2.0 Flash, Gemini 1.5 Pro)",
-        "default_model": "gemini-2.0-flash",
-        "available_models": [
-            "gemini-2.0-flash",
-            "gemini-1.5-pro",
-            "gemini-1.5-flash"
-        ]
-    },
-    "ollama": {
-        "name": "Ollama / Local OpenAI-Compatible",
-        "icon": "🦙",
-        "description": "Local Open Source Models via Ollama or vLLM (http://localhost:11434/v1)",
-        "default_model": "llama3.3:70b",
-        "available_models": [
-            "llama3.3:70b",
-            "deepseek-r1:14b",
-            "qwen2.5-coder:32b",
-            "mistral-nemo"
-        ]
-    },
-    "openrouter": {
-        "name": "OpenRouter Multi-Model Gateway",
-        "icon": "🌐",
-        "description": "Unified Gateway for DeepSeek, Llama 3, Mistral, and Claude",
-        "default_model": "anthropic/claude-3.5-sonnet",
-        "available_models": [
-            "anthropic/claude-3.5-sonnet",
-            "meta-llama/llama-3.3-70b-instruct",
-            "deepseek/deepseek-r1",
-            "mistralai/mistral-large-2411"
-        ]
-    },
-    "groq": {
-        "name": "Groq LPU Acceleration",
-        "icon": "⚡",
-        "description": "High-Speed Inference Engine (Llama 3.3 70B, Mixtral)",
-        "default_model": "llama-3.3-70b-versatile",
-        "available_models": [
-            "llama-3.3-70b-versatile",
-            "llama-3.1-8b-instant",
-            "mixtral-8x7b-32768"
-        ]
     }
 }
 
 class UnifiedLLMProviderFactory:
-    """Industry Standard Multi-Provider Model Manager & Router.
-    Routes agent tasks dynamically to Azure OpenAI, OpenAI, Anthropic, Gemini, Ollama, OpenRouter, or Groq.
-    Provides graceful fallbacks to Azure OpenAI when external keys are unconfigured.
-    """
+    """Validated Azure OpenAI runtime plus non-routable provider setup drafts."""
 
     def __init__(self):
         self.azure_endpoint = settings.azure.endpoint.rstrip("/")
         self.azure_api_key = settings.azure.api_key
         self.azure_api_version = settings.azure.api_version
         
-        self.openai_api_key = os.getenv("OPENAI_API_KEY", "")
-        self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "")
-        self.gemini_api_key = os.getenv("GEMINI_API_KEY", "")
-        self.ollama_endpoint = os.getenv("OLLAMA_ENDPOINT", "http://localhost:11434/v1")
-        self.openrouter_api_key = os.getenv("OPENROUTER_API_KEY", "")
-        self.groq_api_key = os.getenv("GROQ_API_KEY", "")
-
         self.usage_stats = {
             "total_requests": 0,
             "total_prompt_tokens": 0,
@@ -172,6 +94,7 @@ class UnifiedLLMProviderFactory:
             "total_cost_usd": 0.0,
             "providers": {}
         }
+        self._usage_lock = threading.RLock()
 
         self.keys_file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "api_keys.json")
         self.usage_file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "api_usage.json")
@@ -180,29 +103,15 @@ class UnifiedLLMProviderFactory:
         )
         self._load_persisted_keys()
 
-    def get_api_usage_status(self) -> Dict[str, Any]:
-        """Returns aggregated API usage metrics."""
-        return self.usage_stats
-
     def _load_persisted_keys(self):
         if os.path.exists(self.keys_file_path):
             try:
                 with open(self.keys_file_path, "r", encoding="utf-8") as f:
                     saved_keys = json.load(f)
                     if saved_keys.get("azure_endpoint"): self.azure_endpoint = saved_keys["azure_endpoint"].rstrip("/")
-                    if saved_keys.get("azure_api_key"): self.azure_api_key = saved_keys["azure_api_key"]
                     if saved_keys.get("azure_api_version"): self.azure_api_version = saved_keys["azure_api_version"]
-                    if saved_keys.get("openai_api_key"): self.openai_api_key = saved_keys["openai_api_key"]
-                    if saved_keys.get("anthropic_api_key"): self.anthropic_api_key = saved_keys["anthropic_api_key"]
-                    if saved_keys.get("gemini_api_key"): self.gemini_api_key = saved_keys["gemini_api_key"]
-                    if saved_keys.get("ollama_endpoint"): self.ollama_endpoint = saved_keys["ollama_endpoint"].rstrip("/")
-                    if saved_keys.get("openrouter_api_key"): self.openrouter_api_key = saved_keys["openrouter_api_key"]
-                    if saved_keys.get("groq_api_key"): self.groq_api_key = saved_keys["groq_api_key"]
 
-                    # Older custom-model entries remain in the file for audit
-                    # history, but are not loaded into this locked deployment.
-
-                logger.info("Loaded user-configured API keys & custom models from data/api_keys.json")
+                logger.info("Loaded persisted non-secret Azure settings from data/api_keys.json")
             except Exception as e:
                 logger.warning(f"Could not load data/api_keys.json: {e}")
 
@@ -342,101 +251,42 @@ class UnifiedLLMProviderFactory:
         entry = next(item for item in self.get_provider_registry() if item["id"] == normalised_id)
         return {"status": "success", "provider": entry}
 
-    def add_custom_model(self, provider_id: str, model_name: str) -> Dict[str, Any]:
-        """Returns the Azure deployment catalog; arbitrary model names are rejected."""
-        provider_id = provider_id.lower().strip()
-        model_name = model_name.strip()
-        if provider_id != AZURE_PROVIDER or not is_supported_azure_deployment(model_name):
-            raise ValueError("Select one of the approved Azure deployment names.")
-        return {
-            "status": "success",
-            "provider": AZURE_PROVIDER,
-            "added_model": model_name,
-            "available_models": list(APPROVED_AZURE_DEPLOYMENTS),
-        }
-
-        # Legacy multi-provider persistence remains below for migration reference.
-        # It is intentionally unreachable for this Azure-only runtime.
-        if provider_id not in MODEL_PROVIDERS_CATALOG:
-            # Dynamically register custom provider if needed
-            MODEL_PROVIDERS_CATALOG[provider_id] = {
-                "name": provider_id.capitalize(),
-                "icon": "⚡",
-                "description": f"Custom {provider_id} Provider",
-                "default_model": model_name,
-                "available_models": []
-            }
-
-        if model_name not in MODEL_PROVIDERS_CATALOG[provider_id]["available_models"]:
-            MODEL_PROVIDERS_CATALOG[provider_id]["available_models"].append(model_name)
-
-        # Save to api_keys.json
-        keys_to_save = {}
-        if os.path.exists(self.keys_file_path):
-            try:
-                with open(self.keys_file_path, "r", encoding="utf-8") as f:
-                    keys_to_save = json.load(f)
-            except Exception:
-                keys_to_save = {}
-
-        if "custom_models" not in keys_to_save:
-            keys_to_save["custom_models"] = {}
-        if provider_id not in keys_to_save["custom_models"]:
-            keys_to_save["custom_models"][provider_id] = []
-        if model_name not in keys_to_save["custom_models"][provider_id]:
-            keys_to_save["custom_models"][provider_id].append(model_name)
-
-        os.makedirs(os.path.dirname(self.keys_file_path), exist_ok=True)
-        with open(self.keys_file_path, "w", encoding="utf-8") as f:
-            json.dump(keys_to_save, f, indent=2)
-
-        return {
-            "status": "success",
-            "provider": provider_id,
-            "added_model": model_name,
-            "available_models": MODEL_PROVIDERS_CATALOG[provider_id]["available_models"]
-        }
-
     def test_provider_connection(self, provider_id: str) -> Dict[str, Any]:
-        """Tests live API connection for a selected provider."""
+        """Perform a real, minimal Azure completion instead of synthetic latency."""
         provider_id = provider_id.lower().strip()
-
-        if provider_id == "azure":
-            if not self.azure_api_key or not self.azure_endpoint:
-                return {"status": "error", "message": "Azure OpenAI Endpoint and API Key must be configured."}
-            return {"status": "success", "message": f"Azure OpenAI Endpoint reachable at {self.azure_endpoint}", "latency_ms": 42}
-
-        elif provider_id == "openai":
-            if not self.openai_api_key:
-                return {"status": "error", "message": "OpenAI API Key is missing."}
-            return {"status": "success", "message": "OpenAI API Key is configured and ready.", "latency_ms": 68}
-
-        elif provider_id == "anthropic":
-            if not self.anthropic_api_key:
-                return {"status": "error", "message": "Anthropic Claude API Key is missing."}
-            return {"status": "success", "message": "Anthropic API Key configured.", "latency_ms": 75}
-
-        elif provider_id == "gemini":
-            if not self.gemini_api_key:
-                return {"status": "error", "message": "Google Gemini API Key is missing."}
-            return {"status": "success", "message": "Google Gemini API Key configured.", "latency_ms": 55}
-
-        elif provider_id == "ollama":
-            return {"status": "success", "message": f"Ollama local endpoint configured at {self.ollama_endpoint}", "latency_ms": 12}
-
-        elif provider_id == "openrouter":
-            if not self.openrouter_api_key:
-                return {"status": "error", "message": "OpenRouter API Key is missing."}
-            return {"status": "success", "message": "OpenRouter Multi-Model Gateway connected.", "latency_ms": 80}
-
-        elif provider_id == "groq":
-            if not self.groq_api_key:
-                return {"status": "error", "message": "Groq API Key is missing."}
-            return {"status": "success", "message": "Groq LPU Acceleration connected.", "latency_ms": 25}
-
-        return {"status": "success", "message": f"Provider '{provider_id}' is configured.", "latency_ms": 50}
+        if provider_id != AZURE_PROVIDER:
+            return {"status": "error", "message": "Only the validated Azure runtime is enabled."}
+        if not self.azure_api_key or not self.azure_endpoint:
+            return {"status": "error", "message": "Azure OpenAI Endpoint and API Key must be configured."}
+        started = time.perf_counter()
+        try:
+            self._call_azure_openai(
+                [{"role": "user", "content": "Reply OK."}],
+                DEFAULT_AZURE_DEPLOYMENT,
+                0.0,
+                8,
+            )
+        except Exception as exc:
+            return {"status": "error", "message": f"Azure connection failed: {exc}"}
+        return {
+            "status": "success",
+            "message": "Azure OpenAI completion succeeded.",
+            "latency_ms": round((time.perf_counter() - started) * 1000),
+        }
 
     def track_usage(self, provider: str, model: str, usage_dict: Dict[str, Any]):
+        with self._usage_lock:
+            self._track_usage_unlocked(provider, model, usage_dict)
+
+    @staticmethod
+    def estimate_cost(model: str, usage_dict: Dict[str, Any]) -> float:
+        prompt_tokens = int(usage_dict.get("prompt_tokens", usage_dict.get("promptTokenCount", 0)) or 0)
+        completion_tokens = int(usage_dict.get("completion_tokens", usage_dict.get("candidatesTokenCount", 0)) or 0)
+        if any(value in (model or "").lower() for value in ("mini", "flash", "haiku", "8b")):
+            return (prompt_tokens / 1_000_000) * 0.15 + (completion_tokens / 1_000_000) * 0.60
+        return (prompt_tokens / 1_000_000) * 3.00 + (completion_tokens / 1_000_000) * 10.00
+
+    def _track_usage_unlocked(self, provider: str, model: str, usage_dict: Dict[str, Any]):
         """Accumulates API usage metrics and saves to data/api_usage.json."""
         usage_data = {
             "total_requests": 0,
@@ -460,15 +310,7 @@ class UnifiedLLMProviderFactory:
         if "candidatesTokenCount" in usage_dict:
             completion_tokens = usage_dict.get("candidatesTokenCount", 0)
 
-        # Estimate cost (heuristic)
-        cost_p, cost_c = 0.0, 0.0
-        if any(x in model.lower() for x in ["mini", "flash", "haiku", "8b"]):
-            cost_p = (prompt_tokens / 1_000_000) * 0.15
-            cost_c = (completion_tokens / 1_000_000) * 0.60
-        else:
-            cost_p = (prompt_tokens / 1_000_000) * 3.00
-            cost_c = (completion_tokens / 1_000_000) * 10.00
-        total_cost = cost_p + cost_c
+        total_cost = self.estimate_cost(model, usage_dict)
 
         usage_data["total_requests"] += 1
         usage_data["total_prompt_tokens"] += prompt_tokens
@@ -497,12 +339,13 @@ class UnifiedLLMProviderFactory:
 
     def get_api_usage_status(self) -> Dict[str, Any]:
         """Returns API usage statistics."""
-        if os.path.exists(self.usage_file_path):
-            try:
-                with open(self.usage_file_path, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except Exception:
-                pass
+        with self._usage_lock:
+            if os.path.exists(self.usage_file_path):
+                try:
+                    with open(self.usage_file_path, "r", encoding="utf-8") as f:
+                        return json.load(f)
+                except Exception:
+                    pass
         return {
             "total_requests": 0,
             "total_prompt_tokens": 0,
@@ -512,7 +355,7 @@ class UnifiedLLMProviderFactory:
         }
 
     def update_api_keys(self, new_keys: Dict[str, str]) -> Dict[str, Any]:
-        """Updates runtime API keys and persists them to data/api_keys.json."""
+        """Update Azure runtime settings without persisting secret key material."""
         keys_to_save = {}
         if os.path.exists(self.keys_file_path):
             try:
@@ -526,46 +369,21 @@ class UnifiedLLMProviderFactory:
             keys_to_save["azure_endpoint"] = self.azure_endpoint
         if "azure_api_key" in new_keys and new_keys["azure_api_key"].strip():
             self.azure_api_key = new_keys["azure_api_key"].strip()
-            keys_to_save["azure_api_key"] = self.azure_api_key
         if "azure_api_version" in new_keys and new_keys["azure_api_version"].strip():
             self.azure_api_version = new_keys["azure_api_version"].strip()
             keys_to_save["azure_api_version"] = self.azure_api_version
 
-        if "openai_api_key" in new_keys and new_keys["openai_api_key"].strip():
-            self.openai_api_key = new_keys["openai_api_key"].strip()
-            keys_to_save["openai_api_key"] = self.openai_api_key
-            os.environ["OPENAI_API_KEY"] = self.openai_api_key
-
-        if "anthropic_api_key" in new_keys and new_keys["anthropic_api_key"].strip():
-            self.anthropic_api_key = new_keys["anthropic_api_key"].strip()
-            keys_to_save["anthropic_api_key"] = self.anthropic_api_key
-            os.environ["ANTHROPIC_API_KEY"] = self.anthropic_api_key
-
-        if "gemini_api_key" in new_keys and new_keys["gemini_api_key"].strip():
-            self.gemini_api_key = new_keys["gemini_api_key"].strip()
-            keys_to_save["gemini_api_key"] = self.gemini_api_key
-            os.environ["GEMINI_API_KEY"] = self.gemini_api_key
-
-        if "ollama_endpoint" in new_keys and new_keys["ollama_endpoint"].strip():
-            self.ollama_endpoint = new_keys["ollama_endpoint"].strip().rstrip("/")
-            keys_to_save["ollama_endpoint"] = self.ollama_endpoint
-            os.environ["OLLAMA_ENDPOINT"] = self.ollama_endpoint
-
-        if "openrouter_api_key" in new_keys and new_keys["openrouter_api_key"].strip():
-            self.openrouter_api_key = new_keys["openrouter_api_key"].strip()
-            keys_to_save["openrouter_api_key"] = self.openrouter_api_key
-            os.environ["OPENROUTER_API_KEY"] = self.openrouter_api_key
-
-        if "groq_api_key" in new_keys and new_keys["groq_api_key"].strip():
-            self.groq_api_key = new_keys["groq_api_key"].strip()
-            keys_to_save["groq_api_key"] = self.groq_api_key
-            os.environ["GROQ_API_KEY"] = self.groq_api_key
+        for legacy_secret in (
+            "azure_api_key", "openai_api_key", "anthropic_api_key", "gemini_api_key",
+            "openrouter_api_key", "groq_api_key", "ollama_endpoint", "custom_models",
+        ):
+            keys_to_save.pop(legacy_secret, None)
 
         os.makedirs(os.path.dirname(self.keys_file_path), exist_ok=True)
         try:
             with open(self.keys_file_path, "w", encoding="utf-8") as f:
                 json.dump(keys_to_save, f, indent=2)
-            logger.info("Saved updated API keys to data/api_keys.json")
+            logger.info("Saved non-secret Azure runtime settings to data/api_keys.json")
         except Exception as e:
             logger.error(f"Error saving to data/api_keys.json: {e}")
 
@@ -584,21 +402,7 @@ class UnifiedLLMProviderFactory:
             "azure_endpoint": self.azure_endpoint,
             "azure_api_key_masked": mask(self.azure_api_key),
             "azure_api_version": self.azure_api_version,
-            "openai_api_key_masked": mask(self.openai_api_key),
-            "anthropic_api_key_masked": mask(self.anthropic_api_key),
-            "gemini_api_key_masked": mask(self.gemini_api_key),
-            "ollama_endpoint": self.ollama_endpoint,
-            "openrouter_api_key_masked": mask(self.openrouter_api_key),
-            "groq_api_key_masked": mask(self.groq_api_key),
-            "configured_providers": {
-                "azure": bool(self.azure_api_key),
-                "openai": bool(self.openai_api_key),
-                "anthropic": bool(self.anthropic_api_key),
-                "gemini": bool(self.gemini_api_key),
-                "ollama": bool(self.ollama_endpoint),
-                "openrouter": bool(self.openrouter_api_key),
-                "groq": bool(self.groq_api_key)
-            }
+            "configured_providers": {"azure": bool(self.azure_api_key and self.azure_endpoint)},
         }
 
     def get_available_providers(self) -> Dict[str, Any]:
@@ -666,6 +470,8 @@ class UnifiedLLMProviderFactory:
         tools: Optional[List[Dict[str, Any]]],
         on_delta: Callable[[str], None],
     ) -> Dict[str, Any]:
+        if not self.azure_endpoint or not self.azure_api_key:
+            raise RuntimeError("AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY must be configured")
         url = f"{self.azure_endpoint}/openai/deployments/{deployment}/chat/completions?api-version={self.azure_api_version}"
         headers = {"Content-Type": "application/json", "api-key": self.azure_api_key}
         payload: Dict[str, Any] = {
@@ -731,6 +537,8 @@ class UnifiedLLMProviderFactory:
         max_tokens: int,
         tools: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
+        if not self.azure_endpoint or not self.azure_api_key:
+            raise RuntimeError("AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY must be configured")
         url = f"{self.azure_endpoint}/openai/deployments/{deployment}/chat/completions?api-version={self.azure_api_version}"
         headers = {
             "Content-Type": "application/json",
@@ -749,7 +557,10 @@ class UnifiedLLMProviderFactory:
         req = urllib.request.Request(url, data=data, headers=headers)
         with urllib.request.urlopen(req, timeout=90) as response:
             res_body = json.loads(response.read().decode("utf-8"))
-            choice = res_body["choices"][0]
+            choices = res_body.get("choices")
+            if not choices:
+                raise ValueError(f"Azure OpenAI returned no choices in response: {res_body}")
+            choice = choices[0]
             return {
                 "role": choice["message"]["role"],
                 "content": choice["message"].get("content", ""),
@@ -759,174 +570,21 @@ class UnifiedLLMProviderFactory:
                 "model": deployment
             }
 
-    def _call_standard_openai(
-        self,
-        messages: List[Dict[str, Any]],
-        model: str,
-        temperature: float,
-        max_tokens: int,
-        tools: Optional[List[Dict[str, Any]]] = None
-    ) -> Dict[str, Any]:
-        if not self.openai_api_key:
-            return self._call_azure_openai(messages, settings.azure.default_deployment, temperature, max_tokens, tools)
-        
-        return self._call_openai_compatible("https://api.openai.com/v1", self.openai_api_key, messages, model, temperature, max_tokens, tools)
-
-    def _call_openai_compatible(
-        self,
-        base_url: str,
-        api_key: str,
-        messages: List[Dict[str, Any]],
-        model: str,
-        temperature: float,
-        max_tokens: int,
-        tools: Optional[List[Dict[str, Any]]] = None
-    ) -> Dict[str, Any]:
-        if not api_key and "localhost" not in base_url and "127.0.0.1" not in base_url:
-            return self._call_azure_openai(messages, settings.azure.default_deployment, temperature, max_tokens, tools)
-
-        url = f"{base_url.rstrip('/')}/chat/completions"
-        headers = {"Content-Type": "application/json"}
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
-
-        formatted_messages = self._format_messages_for_openai(messages)
-        payload: Dict[str, Any] = {
-            "model": model,
-            "messages": formatted_messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens
-        }
-        if tools:
-            payload["tools"] = tools
-
-        data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(url, data=data, headers=headers)
-        with urllib.request.urlopen(req) as response:
-            res_body = json.loads(response.read().decode("utf-8"))
-            choice = res_body["choices"][0]
-            return {
-                "role": choice["message"]["role"],
-                "content": choice["message"].get("content", ""),
-                "tool_calls": choice["message"].get("tool_calls", []),
-                "usage": res_body.get("usage", {}),
-                "provider": "openai_compatible",
-                "model": model
-            }
-
-    def _call_anthropic(
-        self,
-        messages: List[Dict[str, Any]],
-        model: str,
-        temperature: float,
-        max_tokens: int
-    ) -> Dict[str, Any]:
-        if not self.anthropic_api_key:
-            return self._call_azure_openai(messages, settings.azure.default_deployment, temperature, max_tokens)
-
-        url = "https://api.anthropic.com/v1/messages"
-        headers = {
-            "Content-Type": "application/json",
-            "x-api-key": self.anthropic_api_key,
-            "anthropic-version": "2023-06-01"
-        }
-        system_content = ""
-        anthropic_messages = []
-        for m in messages:
-            role = m.get("role")
-            content = m.get("content", "")
-            if role == "system":
-                system_content += f"{content}\n"
-            else:
-                anthropic_messages.append({"role": role if role in ["user", "assistant"] else "user", "content": str(content)})
-
-        payload: Dict[str, Any] = {
-            "model": model,
-            "messages": anthropic_messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens
-        }
-        if system_content:
-            payload["system"] = system_content.strip()
-
-        data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(url, data=data, headers=headers)
-        with urllib.request.urlopen(req) as response:
-            res_body = json.loads(response.read().decode("utf-8"))
-            content_text = ""
-            for item in res_body.get("content", []):
-                if item.get("type") == "text":
-                    content_text += item.get("text", "")
-            return {
-                "role": "assistant",
-                "content": content_text,
-                "tool_calls": [],
-                "usage": res_body.get("usage", {}),
-                "provider": "anthropic",
-                "model": model
-            }
-
-    def _call_gemini(
-        self,
-        messages: List[Dict[str, Any]],
-        model: str,
-        temperature: float,
-        max_tokens: int
-    ) -> Dict[str, Any]:
-        if not self.gemini_api_key:
-            return self._call_azure_openai(messages, settings.azure.default_deployment, temperature, max_tokens)
-
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.gemini_api_key}"
-        headers = {"Content-Type": "application/json"}
-        
-        contents = []
-        system_instruction = None
-        for m in messages:
-            role = m.get("role")
-            content = m.get("content", "")
-            if role == "system":
-                system_instruction = {"parts": [{"text": str(content)}]}
-            else:
-                g_role = "user" if role == "user" else "model"
-                contents.append({"role": g_role, "parts": [{"text": str(content)}]})
-
-        payload: Dict[str, Any] = {
-            "contents": contents,
-            "generationConfig": {
-                "temperature": temperature,
-                "maxOutputTokens": max_tokens
-            }
-        }
-        if system_instruction:
-            payload["systemInstruction"] = system_instruction
-
-        data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(url, data=data, headers=headers)
-        with urllib.request.urlopen(req) as response:
-            res_body = json.loads(response.read().decode("utf-8"))
-            candidates = res_body.get("candidates", [])
-            text = ""
-            if candidates:
-                parts = candidates[0].get("content", {}).get("parts", [])
-                text = "".join([p.get("text", "") for p in parts])
-            return {
-                "role": "assistant",
-                "content": text,
-                "tool_calls": [],
-                "usage": res_body.get("usageMetadata", {}),
-                "provider": "gemini",
-                "model": model
-            }
-
     def _format_messages_for_openai(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Keep OpenAI tool-call linkage intact while discarding local-only metadata."""
         formatted: List[Dict[str, Any]] = []
         for message in messages:
             role = message["role"]
-            content = message.get("content", "")
+            content = message.get("content")
+            if content is None:
+                formatted_content = None
+            elif isinstance(content, (str, list)):
+                formatted_content = content
+            else:
+                formatted_content = str(content)
             payload: Dict[str, Any] = {
                 "role": role,
-                "content": content if isinstance(content, (str, list)) else str(content),
+                "content": formatted_content,
             }
             if role == "assistant" and message.get("tool_calls"):
                 payload["tool_calls"] = message["tool_calls"]

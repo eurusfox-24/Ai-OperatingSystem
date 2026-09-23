@@ -1,7 +1,7 @@
 # Technical Documentation Report: Vite Proxy & Dual Event Chat Submission Fix
 
 **Date:** 2026-07-30  
-**Project:** Forest Joensuu AI OS  
+**Project:** The Company AI OS  
 **Author:** AI System Architect  
 
 ---

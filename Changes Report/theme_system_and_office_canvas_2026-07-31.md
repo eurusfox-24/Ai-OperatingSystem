@@ -1,7 +1,7 @@
 # Technical Changes Report: Theme System & Pixel Office Workspace Refinement
 
 **Date:** July 31, 2026  
-**Target Application:** Forest Joensuu AI OS (`http://localhost:3000`)
+**Target Application:** The Company AI OS (`http://localhost:3000`)
 
 ---
 

@@ -1,0 +1,6 @@
+[submodule "scratch/agent-office"]
+	path = scratch/agent-office
+	url = https://github.com/harishkotra/agent-office.git
+[submodule "scratch/pixel-agents"]
+	path = scratch/pixel-agents
+	url = https://github.com/pixel-agents-hq/pixel-agents.git

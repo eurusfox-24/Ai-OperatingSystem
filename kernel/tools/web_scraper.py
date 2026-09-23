@@ -1,6 +1,7 @@
 import ipaddress
 import logging
 import socket
+import urllib.error
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -12,10 +13,11 @@ logger = logging.getLogger("web_scraper")
 
 
 class WebScraperEngine:
-    """Public-web research engine with dynamic-page rendering and safe HTTP fallbacks."""
+    """Bounded public-web research engine with SSRF-resistant HTTP retrieval."""
 
     MAX_PAGE_CHARS = 5_000
     MAX_SEARCH_RESULTS = 3
+    MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 
     @staticmethod
     def _clean_html(html: str, max_chars: int) -> str:
@@ -33,54 +35,51 @@ class WebScraperEngine:
         host = parsed.hostname
         if parsed.scheme not in {"http", "https"} or not host:
             return None
+        try:
+            port = parsed.port
+        except ValueError:
+            return None
+        if parsed.username or parsed.password or (port and port not in {80, 443}):
+            return None
         if host.lower() in {"localhost", "localhost.localdomain"} or host.lower().endswith((".local", ".internal")):
             return None
         try:
             addresses = {item[4][0] for item in socket.getaddrinfo(host, None)}
             for address in addresses:
                 ip = ipaddress.ip_address(address)
-                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+                if not ip.is_global:
                     return None
         except (OSError, ValueError):
             return None
         return normalized
 
-    def _extract_rendered_text(self, response: object, max_chars: int) -> str:
-        body = getattr(response, "body", b"")
-        if isinstance(body, bytes):
-            html = body.decode("utf-8", errors="ignore")
-        else:
-            html = str(body or "")
-        return self._clean_html(html, max_chars)
-
     def fetch_url_content(self, url: str, max_chars: int = MAX_PAGE_CHARS) -> str:
-        """Render a public page headlessly, then fall back to lightweight HTTP extraction."""
+        """Retrieve a bounded public page while revalidating every redirect."""
         normalized_url = self._validate_public_url(url)
         if not normalized_url:
             return "Blocked unsafe or invalid URL. Only public HTTP(S) pages may be researched."
 
-        try:
-            from scrapling import DynamicFetcher
+        engine = self
 
-            response = DynamicFetcher.fetch(
-                normalized_url,
-                headless=True,
-                disable_resources=True,
-                block_ads=True,
-                network_idle=True,
-                timeout=15_000,
-            )
-            rendered_text = self._extract_rendered_text(response, max_chars)
-            if rendered_text:
-                return rendered_text
-        except Exception as exc:
-            logger.info("Headless page rendering failed for %s: %s", normalized_url, exc)
+        class SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[no-untyped-def]
+                validated = engine._validate_public_url(newurl)
+                if not validated:
+                    raise urllib.error.HTTPError(newurl, 403, "Blocked unsafe redirect", headers, fp)
+                return super().redirect_request(req, fp, code, msg, headers, validated)
 
         headers = {"User-Agent": "Mozilla/5.0 (compatible; AI-OS-Research/1.0)"}
         try:
             request = urllib.request.Request(normalized_url, headers=headers)
-            with urllib.request.urlopen(request, timeout=12) as response:
-                return self._clean_html(response.read().decode("utf-8", errors="ignore"), max_chars)
+            opener = urllib.request.build_opener(SafeRedirectHandler())
+            with opener.open(request, timeout=12) as response:
+                final_url = response.geturl()
+                if not self._validate_public_url(final_url):
+                    return "Blocked unsafe redirect target."
+                payload = response.read(self.MAX_RESPONSE_BYTES + 1)
+                if len(payload) > self.MAX_RESPONSE_BYTES:
+                    return "Web page exceeded the safe response-size limit."
+                return self._clean_html(payload.decode("utf-8", errors="ignore"), max_chars)
         except Exception as exc:
             logger.error("Could not retrieve %s: %s", normalized_url, exc)
             return f"Failed to retrieve web page: {exc}"
@@ -102,7 +101,10 @@ class WebScraperEngine:
             },
         )
         with urllib.request.urlopen(request, timeout=12) as response:
-            soup = BeautifulSoup(response.read().decode("utf-8", errors="ignore"), "html.parser")
+            payload = response.read(self.MAX_RESPONSE_BYTES + 1)
+            if len(payload) > self.MAX_RESPONSE_BYTES:
+                return []
+            soup = BeautifulSoup(payload.decode("utf-8", errors="ignore"), "html.parser")
 
         result_limit = max(1, min(max_results or self.MAX_SEARCH_RESULTS, self.MAX_SEARCH_RESULTS))
         results: List[Tuple[str, str, str]] = []

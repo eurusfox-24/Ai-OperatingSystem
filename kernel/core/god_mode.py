@@ -29,7 +29,7 @@ class GodModeEngine:
         os.makedirs(SKILLS_DIR, exist_ok=True)
         if not os.path.exists(RULES_PATH):
             with open(RULES_PATH, "w", encoding="utf-8") as f:
-                f.write("# Forest Joensuu AI OS System Rules\n\n- Primary Persona: Strategic AI Board Member\n- Target Focus: Job creation, investments, and Susicorn scaling in Joensuu, Finland.\n")
+                f.write("# AI OS System Rules\n\n- Primary Persona: Strategic AI Board Member\n- Target Focus: Job creation, investments, and Susicorn scaling.\n")
         if not os.path.exists(CONFIG_PATH):
             default_cfg = {
                 "persona": "Strategic Executive Board Member",

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import List, Optional
 from kernel.core.framework import BaseAgent, AgentTask, AgentResult, agent_registry
@@ -8,7 +9,7 @@ from kernel.db.local_manager import db_manager
 
 logger = logging.getLogger("meeting_notes_agent")
 
-DEFAULT_MEETING_NOTES_PROMPT = """You are the Chief Executive Secretary & Knowledge Management Lead sub-agent for Forest Joensuu and Business Joensuu.
+DEFAULT_MEETING_NOTES_PROMPT = """You are the Chief Executive Secretary & Knowledge Management Lead sub-agent for The Company.
 
 YOUR PERSONA & TONE:
 - Tone: Methodical, structured, exact, objective, and organized.
@@ -46,7 +47,8 @@ class MeetingNotesAgent(BaseAgent):
             await event_bus.notify_agent_update(agent_id, status="working", current_task=f"Performing local SQLite vector search for: {query[:25]}")
             result_sections = []
             for notebook_id in task.context.get("notebook_ids", []):
-                result = doc_engine.search_relevant_docs(
+                result = await asyncio.to_thread(
+                    doc_engine.search_relevant_docs,
                     query,
                     notebook_id=notebook_id,
                     document_names=task.context.get("allowed_source_names", []),
@@ -76,9 +78,10 @@ Notes / Transcript:
 
 Generate formal executive meeting minutes with decisions and action items."""
 
-        res = llm_provider.chat_completion(
+        res = await asyncio.to_thread(
+            llm_provider.chat_completion,
             messages=[
-                {"role": "system", "content": self.get_system_prompt(project_id=task.context.get("project_id", ""))},
+                {"role": "system", "content": self.get_system_prompt(user_id=task.username, project_id=task.context.get("project_id", ""))},
                 {"role": "user", "content": prompt}
             ],
             provider=self.provider,
@@ -94,7 +97,7 @@ Generate formal executive meeting minutes with decisions and action items."""
         formatted_filename = f"Meeting_Notes_{meeting_title.replace(' ', '_')}.txt"
         document_content = f"--- MEETING NOTES & DECISIONS RECORD ---\nTitle: {meeting_title}\n\n{report}\n\nRaw Content:\n{transcript_text}"
         
-        ingest_result = doc_engine.ingest_document(formatted_filename, document_content.encode('utf-8'))
+        ingest_result = await asyncio.to_thread(doc_engine.ingest_document, formatted_filename, document_content.encode('utf-8'))
         project_id = task.context.get("project_id", "")
         if ingest_result.get("status") == "success" and project_id:
             db_manager.add_document_to_notebook(project_id, formatted_filename)
@@ -110,7 +113,9 @@ Generate formal executive meeting minutes with decisions and action items."""
                 "meeting_title": meeting_title,
                 "report": report,
                 "rag_ingest_result": ingest_result,
-                "knowledge_base_file": formatted_filename
+                "knowledge_base_file": formatted_filename,
+                "usage": res.get("usage", {}),
+                "cost_usd": llm_provider.estimate_cost(self.model, res.get("usage", {})),
             }
         )
 

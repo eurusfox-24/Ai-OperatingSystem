@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from kernel.core.framework import BaseAgent, AgentTask, AgentResult, agent_registry
 from kernel.core.llm_provider import llm_provider
@@ -5,7 +6,7 @@ from kernel.core.event_bus import event_bus
 
 logger = logging.getLogger("financial_advisor_agent")
 
-DEFAULT_FINANCIAL_ADVISOR_PROMPT = """You are the Chief Financial Officer (CFO) & Senior Investment Strategist sub-agent for Forest Joensuu and Business Joensuu.
+DEFAULT_FINANCIAL_ADVISOR_PROMPT = """You are the Chief Financial Officer (CFO) & Senior Investment Strategist sub-agent for The Company.
 
 YOUR PERSONA & TONE:
 - Tone: Analytical, precise, formal, empirical, and financially rigorous.
@@ -14,7 +15,7 @@ YOUR PERSONA & TONE:
 EXECUTION DIRECTIVE:
 When tasked with financial advisories, conduct a thorough quantitative assessment:
 1. Executive Financial Health Assessment (Cash flow, capital burn, runway)
-2. Investment & Regional Grant Structuring (Joensuu bio-fund, EU innovation grants, VC co-investment)
+2. Investment & Regional Grant Structuring (Regional innovation fund, EU innovation grants, VC co-investment)
 3. ROI & Financial Risk Modeling
 4. Recommended Immediate Financial Actions (Next 30/90 Days)"""
 
@@ -45,9 +46,10 @@ Context:
 
 Provide a comprehensive CFO-level advisory report."""
 
-        res = llm_provider.chat_completion(
+        res = await asyncio.to_thread(
+            llm_provider.chat_completion,
             messages=[
-                {"role": "system", "content": self.get_system_prompt()},
+                {"role": "system", "content": self.get_system_prompt(user_id=task.username, project_id=task.context.get("project_id", ""))},
                 {"role": "user", "content": prompt}
             ],
             provider=self.provider,
@@ -66,7 +68,9 @@ Provide a comprehensive CFO-level advisory report."""
             summary=analysis,
             data={
                 "financial_report": analysis,
-                "domain": "Financial Strategy & Capital Allocation"
+                "domain": "Financial Strategy & Capital Allocation",
+                "usage": res.get("usage", {}),
+                "cost_usd": llm_provider.estimate_cost(self.model, res.get("usage", {})),
             }
         )
 

@@ -118,6 +118,11 @@ class BaseAgent:
             tier2 = f"[USER PROFILE & CONTEXT]\n- Active User: {disp_name} (Role: {user_role})\n- Communication Tone: {tone}"
             if cust_inst:
                 tier2 += f"\n- Custom Directives: {cust_inst}"
+
+            language = user_prof.get("language", "en")
+            if language == "fi":
+                tier2 += "\n\nCRITICAL RULE: You must always respond to the user in Finnish. All your reasoning, summaries, and output must be in the Finnish language."
+
             if prof_md:
                 tier2 += f"\n\nUser Profile Overview:\n{prof_md}"
             sections.append(tier2)

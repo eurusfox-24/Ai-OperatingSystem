@@ -1,7 +1,7 @@
 # Technical Report: Pixel-Agents Visual Rendering Integration
 
 **Date**: 2026-07-30  
-**Project**: Forest Joensuu AI OS (`eurusfox-24/AutomaticReportingNew`)  
+**Project**: The Company AI OS (`eurusfox-24/AutomaticReportingNew`)  
 **Status**: Completed & Built Cleanly (`npx vite build` passed)
 
 ---

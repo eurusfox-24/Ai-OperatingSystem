@@ -1,7 +1,7 @@
 # Technical Report: Knowledge Tree & Separate Document Ingestion Hub Implementation
 
 **Date**: 2026-07-29  
-**Workspace**: Forest Joensuu AI OS (`eurusfox-24/AutomaticReportingNew`)  
+**Workspace**: The Company AI OS (`eurusfox-24/AutomaticReportingNew`)  
 **Author**: Antigravity AI Assistant  
 
 ---

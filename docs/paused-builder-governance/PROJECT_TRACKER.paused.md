@@ -1,4 +1,4 @@
-# Forest Joensuu AI OS — Living MVP Tracker
+# The Company AI OS — Living MVP Tracker
 
 > Status: paused on 2026-08-02. Do not treat this as the active delivery plan for the lightweight showcase.
 

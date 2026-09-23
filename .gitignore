@@ -1,4 +1,9 @@
 .env
+.env.*
+.env.local
+!.env.example
+*.key
+*.pem
 .venv/
 venv/
 **/__pycache__/
@@ -9,7 +14,21 @@ ui/node_modules/
 ui/dist/
 
 data/*.db
+data/*.db-shm
+data/*.db-wal
 data/api_usage.json
 data/api_keys.json
+data/documents/.orphaned/
 
 .od-skills/
+.agents/*/
+ORIGINAL_REQUEST.md
+scratch/test_*.py
+scratch/verify_*.py
+ui/test-results/
+ui/playwright-report/
+
+# Supervisor hand-off documentation (strictly untracked)
+*supervisor*
+docs/supervisor/
+SUPERVISOR_*.md

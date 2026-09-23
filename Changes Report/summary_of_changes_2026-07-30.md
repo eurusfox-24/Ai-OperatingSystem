@@ -1,7 +1,7 @@
 # Technical Changes Report: Bug Fixes & Codebase Optimization
 
 **Date**: 2026-07-30  
-**Target Repository**: Forest Joensuu AI OS (`kernel/`, `ui/`, `data/`)  
+**Target Repository**: The Company AI OS (`kernel/`, `ui/`, `data/`)  
 **File Location**: `Changes Report/summary_of_changes_2026-07-30.md`
 
 ---

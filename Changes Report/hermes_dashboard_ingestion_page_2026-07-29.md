@@ -1,14 +1,14 @@
 # Technical Report: Hermes Dashboard & Dedicated Document Ingestion Page Integration
 
 **Date**: 2026-07-29  
-**Workspace**: Forest Joensuu AI OS (`eurusfox-24/AutomaticReportingNew`)  
+**Workspace**: The Company AI OS (`eurusfox-24/AutomaticReportingNew`)  
 **Author**: Antigravity AI Assistant  
 
 ---
 
 ## 1. Summary of Architectural Changes
 
-The user interface of the **Forest Joensuu AI OS** was upgraded to establish an enterprise-grade **Hermes Executive Command Center** landing page and a dedicated **Document Ingestion Hub & Vector RAG Engine** page.
+The user interface of the **The Company AI OS** was upgraded to establish an enterprise-grade **Hermes Executive Command Center** landing page and a dedicated **Document Ingestion Hub & Vector RAG Engine** page.
 
 1. **Hermes Dashboard as Primary Landing Page**:
    - Replaced the initial chat-default view with the **Hermes Dashboard** as the main landing page (`dashboard-page`), serving as the central command post for the autonomous AI Board Member.

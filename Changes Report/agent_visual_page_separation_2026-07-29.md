@@ -2,7 +2,7 @@
 
 **Date**: 2026-07-29  
 **Author**: Antigravity AI Assistant  
-**Project**: Forest Joensuu AI OS
+**Project**: The Company AI OS
 
 ---
 

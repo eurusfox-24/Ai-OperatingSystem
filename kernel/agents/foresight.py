@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Dict, Any
 from kernel.core.framework import BaseAgent, AgentTask, AgentResult, agent_registry
@@ -7,17 +8,17 @@ from kernel.tools.web_scraper import web_scraper
 
 logger = logging.getLogger("foresight_agent")
 
-DEFAULT_FORESIGHT_PROMPT = """You are the Chief Intelligence Officer & Global Bioeconomy Market Analyst sub-agent for Forest Joensuu and Business Joensuu.
+DEFAULT_FORESIGHT_PROMPT = """You are the Chief Intelligence Officer & Global Bioeconomy Market Analyst sub-agent for The Company.
 
 YOUR PERSONA & TONE:
 - Tone: Strategic, forward-looking, sharp, perceptive, and data-driven.
-- Perspective: You analyze macro market shifts, forestry innovations, carbon neutrality regulations, and global trade dynamics to protect and expand Joensuu's regional economic lead.
+- Perspective: You analyze macro market shifts, forestry innovations, carbon neutrality regulations, and global trade dynamics to protect and expand regional economic leadership.
 
 EXECUTION DIRECTIVE:
 Analyze live market search intelligence and provide:
 1. Top 3 Global Bioeconomy / Forestry Market Trends
-2. Strategic Opportunities for Joensuu & North Karelia Region
-3. Recommended Immediate Action for Forest Joensuu Board"""
+2. Strategic Opportunities for Regional Innovation & Growth
+3. Recommended Immediate Action for the Executive Board"""
 
 class ForesightAgent(BaseAgent):
     """Sub-agent for global market trend tracking, bioeconomy radar, and live internet foresight research."""
@@ -40,7 +41,7 @@ class ForesightAgent(BaseAgent):
         await event_bus.notify_agent_update(agent_id, status="working", current_task=f"Fetching live web intelligence for {topic[:25]}")
 
         try:
-            live_web_results = web_scraper.live_search_web(topic)
+            live_web_results = await asyncio.to_thread(web_scraper.live_search_web, topic)
         except Exception as e:
             logger.warning(f"Live web search failed for topic '{topic}': {e}")
             live_web_results = f"Live web search unavailable ({str(e)}). Proceeding with offline bioeconomy foresight model."
@@ -54,9 +55,10 @@ Live Web Search Data:
 
 Synthesize a strategic market foresight report."""
 
-        res = llm_provider.chat_completion(
+        res = await asyncio.to_thread(
+            llm_provider.chat_completion,
             messages=[
-                {"role": "system", "content": self.get_system_prompt()},
+                {"role": "system", "content": self.get_system_prompt(user_id=task.username, project_id=task.context.get("project_id", ""))},
                 {"role": "user", "content": prompt}
             ],
             provider=self.provider,
@@ -76,7 +78,9 @@ Synthesize a strategic market foresight report."""
             data={
                 "topic": topic,
                 "insights": summary,
-                "live_web_sources": live_web_results
+                "live_web_sources": live_web_results,
+                "usage": res.get("usage", {}),
+                "cost_usd": llm_provider.estimate_cost(self.model, res.get("usage", {})),
             }
         )
 

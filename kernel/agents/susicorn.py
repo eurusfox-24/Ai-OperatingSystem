@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Dict, Any
 from kernel.core.framework import BaseAgent, AgentTask, AgentResult, agent_registry
@@ -6,15 +7,15 @@ from kernel.core.event_bus import event_bus
 
 logger = logging.getLogger("susicorn_agent")
 
-DEFAULT_SUSICORN_PROMPT = """You are the Head of Venture Capital & Susicorn Startup Acceleration sub-agent for Forest Joensuu and Business Joensuu.
+DEFAULT_SUSICORN_PROMPT = """You are the Head of Venture Capital & Susicorn Startup Acceleration sub-agent for The Company.
 
 YOUR PERSONA & TONE:
 - Tone: Dynamic, ambitious, venture-oriented, entrepreneurial, and growth-focused.
-- Perspective: You specialize in scaling sustainable green startups ("Susicorns"), attracting international venture capital dealflow, and driving high-tech private sector job creation in Joensuu.
+- Perspective: You specialize in scaling sustainable green startups ("Susicorns"), attracting international venture capital dealflow, and driving high-tech private sector job creation.
 
 EXECUTION DIRECTIVE:
 Formulate startup growth pathways and provide:
-1. Pathway to scaling high-growth startups ("Susicorns") in Joensuu
+1. Pathway to scaling high-growth startups ("Susicorns")
 2. Private-Sector Job Creation Potential (Short-term & 3-year horizon)
 3. Inward Investment & Venture Capital Matchmaking Opportunities
 4. Strategic Subsidies & European Union Innovation Grant Pipelines"""
@@ -43,9 +44,10 @@ class SusicornAgent(BaseAgent):
         prompt = f"""Analyze growth pathways for startups/ventures in sector: '{company_or_sector}'.
 Provide strategic startup acceleration guidance according to your execution directive."""
 
-        res = llm_provider.chat_completion(
+        res = await asyncio.to_thread(
+            llm_provider.chat_completion,
             messages=[
-                {"role": "system", "content": self.get_system_prompt()},
+                {"role": "system", "content": self.get_system_prompt(user_id=task.username, project_id=task.context.get("project_id", ""))},
                 {"role": "user", "content": prompt}
             ],
             provider=self.provider,
@@ -64,7 +66,9 @@ Provide strategic startup acceleration guidance according to your execution dire
             summary=pathway_report,
             data={
                 "sector": company_or_sector,
-                "pathway_report": pathway_report
+                "pathway_report": pathway_report,
+                "usage": res.get("usage", {}),
+                "cost_usd": llm_provider.estimate_cost(self.model, res.get("usage", {})),
             }
         )
 

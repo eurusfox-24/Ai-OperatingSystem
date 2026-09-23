@@ -1,14 +1,14 @@
 # Technical Changes Report: UI & Typography Improvements, Emoji Removal & Green Dot Removal
 
 **Date:** 2026-08-05  
-**Project:** Forest Joensuu AI OS  
+**Project:** The Company AI OS  
 **Author:** Antigravity AI Assistant  
 
 ---
 
 ## 1. Executive Summary
 
-This report documents the user interface polish and styling cleanup applied across the Forest Joensuu AI OS web application (`ui/`). The primary objectives were:
+This report documents the user interface polish and styling cleanup applied across the The Company AI OS web application (`ui/`). The primary objectives were:
 1. Removing all non-essential emojis across application headings, buttons, tabs, modal forms, status indicators, and prompt queues.
 2. Completely hiding green pulse dots (`.pulse-indicator`, `.pulse-dot`, green status indicators) across the navigation, chat area, and telemetry sections.
 3. Enhancing typography (letter formatting, hierarchy, letter-spacing, line-heights) and standardizing card styling across all application views.

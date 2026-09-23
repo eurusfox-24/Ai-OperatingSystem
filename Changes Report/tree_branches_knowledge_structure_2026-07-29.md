@@ -1,7 +1,7 @@
 # Technical Report: Visual Branched Knowledge Tree Hierarchy Update
 
 **Date**: 2026-07-29  
-**Workspace**: Forest Joensuu AI OS (`eurusfox-24/AutomaticReportingNew`)  
+**Workspace**: The Company AI OS (`eurusfox-24/AutomaticReportingNew`)  
 **Author**: Antigravity AI Assistant  
 
 ---
@@ -11,7 +11,7 @@
 Redesigned the Knowledge Tree component on the **Boardroom Dashboard** into a multi-tiered, visual tree hierarchy with branch stems, parent nodes, sub-branches, and leaf items:
 
 1. **Multi-Level Visual Tree Hierarchy**:
-   - **Root Vault Node**: 🏛️ *Forest Joensuu AI Knowledge Vault*.
+   - **Root Vault Node**: 🏛️ *The Company AI Knowledge Vault*.
    - **Parent Branches**:
      - 🌿 *Joensuu Regional Strategy & Governance*
      - 🌿 *Bioeconomy & High-Tech Industry*

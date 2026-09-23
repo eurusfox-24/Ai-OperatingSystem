@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-29  
 **Author:** Antigravity Strategic AI Assistant  
-**Project:** Forest Joensuu AI OS Kernel
+**Project:** The Company AI OS Kernel
 
 ---
 
